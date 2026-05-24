@@ -1,3 +1,4 @@
+from collections import defaultdict
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -16,7 +17,7 @@ def _load_cart_items(user_id: str, cart_item_ids: list[str]) -> list[dict]:
 
     response = (
         supabase.table("cart_items")
-        .select("id,user_id,product_id,quantity,products(id,name,price,sale_price,stock,images,is_active)")
+        .select("id,user_id,product_id,quantity,products(id,name,price,sale_price,stock,images,is_active,shop_id)")
         .eq("user_id", user_id)
         .in_("id", unique_ids)
         .execute()
@@ -32,7 +33,39 @@ def _load_cart_items(user_id: str, cart_item_ids: list[str]) -> list[dict]:
     return cart_items
 
 
-def _normalize_order_item(cart_item: dict) -> tuple[dict, Decimal]:
+def _load_direct_items(direct_items: list[dict]) -> list[dict]:
+    unique_ids = list(dict.fromkeys(item["product_id"] for item in direct_items))
+    quantities = {item["product_id"]: int(item["quantity"]) for item in direct_items}
+    if not unique_ids:
+        return []
+
+    response = (
+        supabase.table("products")
+        .select("id,name,price,sale_price,stock,images,is_active,shop_id")
+        .in_("id", unique_ids)
+        .execute()
+    )
+    products = response.data or []
+    found_ids = {item["id"] for item in products}
+    missing_ids = set(unique_ids) - found_ids
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Some products were not found",
+        )
+
+    return [
+        {
+            "id": f"direct:{product['id']}",
+            "product_id": product["id"],
+            "quantity": quantities[product["id"]],
+            "products": product,
+        }
+        for product in products
+    ]
+
+
+def _normalize_order_item(cart_item: dict) -> tuple[dict, Decimal, str | None]:
     product = cart_item.get("products")
     if not product:
         raise HTTPException(
@@ -67,7 +100,7 @@ def _normalize_order_item(cart_item: dict) -> tuple[dict, Decimal]:
         "price": float(unit_price),
         "quantity": quantity,
     }
-    return order_item, unit_price * Decimal(str(quantity))
+    return order_item, unit_price * Decimal(str(quantity)), product.get("shop_id")
 
 
 def _resolve_shipping_address(user_id: str, shipping_address: str | None) -> dict:
@@ -99,64 +132,77 @@ def _resolve_shipping_address(user_id: str, shipping_address: str | None) -> dic
     return address
 
 
-def create_order(user_id: str, payload: OrderCreate) -> dict:
-    cart_items = _load_cart_items(user_id, payload.cart_item_ids)
+def create_order(user_id: str, payload: OrderCreate) -> list[dict]:
+    if not payload.payment_method:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="payment_method is required",
+        )
+
+    cart_items = _load_cart_items(user_id, payload.cart_item_ids) if payload.cart_item_ids else []
+    direct_items = _load_direct_items([item.model_dump() for item in payload.direct_items])
+    order_source_items = cart_items + direct_items
+    if not order_source_items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="cart_item_ids or direct_items is required",
+        )
+
     shipping_address = _resolve_shipping_address(user_id, payload.shipping_address)
 
-    normalized_items = []
-    total_amount = Decimal("0")
-    for cart_item in cart_items:
-        order_item, line_total = _normalize_order_item(cart_item)
-        normalized_items.append(order_item)
-        total_amount += line_total
+    groups: dict[str | None, dict] = defaultdict(
+        lambda: {"items": [], "total_amount": Decimal("0")}
+    )
+    for cart_item in order_source_items:
+        order_item, line_total, shop_id = _normalize_order_item(cart_item)
+        groups[shop_id]["items"].append(order_item)
+        groups[shop_id]["total_amount"] += line_total
 
-    order_response = (
-        supabase.table("orders")
-        .insert(
+    created_orders = []
+    for shop_id, group in groups.items():
+        order_response = (
+            supabase.table("orders")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "status": "pending",
+                    "payment_method": payload.payment_method,
+                    "total_amount": float(group["total_amount"]),
+                    "shipping_name": shipping_address["recipient_name"],
+                    "shipping_phone": shipping_address["phone_number"],
+                    "shipping_address": shipping_address["location"],
+                    "shop_id": shop_id,
+                    "note": payload.note,
+                }
+            )
+            .execute()
+        )
+
+        order = (order_response.data or [None])[0]
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to create order",
+            )
+
+        order_items = [
             {
-                "user_id": user_id,
-                "status": "pending",
-                "payment_method": payload.payment_method,
-                "total_amount": float(total_amount),
-                "shipping_name": shipping_address["recipient_name"],
-                "shipping_phone": shipping_address["phone_number"],
-                "shipping_address": shipping_address["location"],
-                "note": payload.note,
+                **item,
+                "order_id": order["id"],
             }
-        )
-        .execute()
-    )
+            for item in group["items"]
+        ]
+        items_response = supabase.table("order_items").insert(order_items).execute()
+        order["order_items"] = items_response.data or []
+        created_orders.append(order)
 
-    order = (order_response.data or [None])[0]
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to create order",
-        )
+    if cart_items:
+        supabase.table("cart_items").delete().eq("user_id", user_id).in_(
+            "id",
+            [item["id"] for item in cart_items],
+        ).execute()
 
-    order_items = [
-        {
-            **item,
-            "order_id": order["id"],
-        }
-        for item in normalized_items
-    ]
-    items_response = supabase.table("order_items").insert(order_items).execute()
-    order["order_items"] = items_response.data or []
-
-    supabase.table("cart_items").delete().eq("user_id", user_id).in_(
-        "id",
-        [item["id"] for item in cart_items],
-    ).execute()
-
-    return order
-
-
-def create_order_items(user_id: str, order_items: list[dict]) -> list[dict]:
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Order items are created by the order checkout flow",
-    )
+    return created_orders
 
 
 def list_orders(user_id: str) -> list[dict]:
@@ -172,24 +218,3 @@ def list_orders(user_id: str) -> list[dict]:
     for order in orders:
         order["order_items"] = order.get("order_items") or []
     return orders
-
-
-def get_order(user_id: str, order_id: str) -> dict:
-    response = (
-        supabase.table("orders")
-        .select("*,order_items(*)")
-        .eq("id", order_id)
-        .eq("user_id", user_id)
-        .maybe_single()
-        .execute()
-    )
-
-    if not response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-
-    order = response.data
-    order["order_items"] = order.get("order_items") or []
-    return order

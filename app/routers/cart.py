@@ -25,30 +25,12 @@ def add_to_cart(
 
 
 @router.patch("", response_model=CartItem)
-def update_cart_item_compat(
+def update_cart_item(
     payload: CartItemUpdate,
     id: str,
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     return cart_service.update_cart_item(current_user["id"], id, payload)
-
-
-@router.patch("/{cart_item_id}", response_model=CartItem)
-def update_cart_item(
-    cart_item_id: str,
-    payload: CartItemUpdate,
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    return cart_service.update_cart_item(current_user["id"], cart_item_id, payload)
-
-
-@router.delete("/{cart_item_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_cart_item(
-    cart_item_id: str,
-    current_user: dict = Depends(get_current_user),
-) -> Response:
-    cart_service.delete_cart_item(current_user["id"], cart_item_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

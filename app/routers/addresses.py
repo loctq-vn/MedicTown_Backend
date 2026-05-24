@@ -21,7 +21,7 @@ def add_address(
 
 
 @router.patch("", response_model=Address)
-def update_address_compat(
+def update_address(
     payload: AddressUpdate,
     id: str,
     current_user: dict = Depends(get_current_user),
@@ -29,28 +29,10 @@ def update_address_compat(
     return address_service.update_address(current_user["id"], id, payload)
 
 
-@router.patch("/{address_id}", response_model=Address)
-def update_address(
-    address_id: str,
-    payload: AddressUpdate,
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    return address_service.update_address(current_user["id"], address_id, payload)
-
-
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
-def delete_address_compat(
+def delete_address(
     id: str,
     current_user: dict = Depends(get_current_user),
 ) -> Response:
     address_service.delete_address(current_user["id"], id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.delete("/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_address(
-    address_id: str,
-    current_user: dict = Depends(get_current_user),
-) -> Response:
-    address_service.delete_address(current_user["id"], address_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

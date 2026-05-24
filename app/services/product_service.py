@@ -1,5 +1,3 @@
-from fastapi import HTTPException, status
-
 from app.database import supabase
 from app.utils.postgrest_filters import parse_ilike_filter
 
@@ -52,21 +50,3 @@ def list_products_by_name_filter(
         "items": response.data or [],
         "total": response.count or len(response.data or []),
     }
-
-
-def get_product(product_id: str) -> dict:
-    response = (
-        supabase.table("products")
-        .select("*")
-        .eq("id", product_id)
-        .maybe_single()
-        .execute()
-    )
-
-    if not response.data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
-        )
-
-    return response.data

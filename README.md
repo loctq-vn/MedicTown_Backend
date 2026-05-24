@@ -60,50 +60,39 @@ http://127.0.0.1:8000/docs
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/google`
-- `GET /api/auth/me`
 
 ### Users
 
 - `GET /api/users/me`
 - `PATCH /api/users/me`
 - `POST /api/users/me/avatar`
-- Compat cu: `GET /api/users?id=eq.{user_id}`, `PATCH /api/users?id=eq.{user_id}`
 
 ### Address
 
 - `GET /api/address`
 - `POST /api/address`
-- `PATCH /api/address/{address_id}`
-- `DELETE /api/address/{address_id}`
-- Compat cu: `PATCH /api/address?id=eq.{address_id}`, `DELETE /api/address?id=eq.{address_id}`
+- `PATCH /api/address?id={address_id}`
+- `DELETE /api/address?id={address_id}`
 
 ### Cart
 
 - `GET /api/cart_items`
 - `POST /api/cart_items`
-- `PATCH /api/cart_items/{cart_item_id}`
-- `DELETE /api/cart_items/{cart_item_id}`
+- `PATCH /api/cart_items?id={cart_item_id}`
+- `DELETE /api/cart_items?id={cart_item_id}`
 - `DELETE /api/cart_items`
-- Compat cu: `PATCH /api/cart_items?id=eq.{cart_item_id}`, `DELETE /api/cart_items?id=in.(id1,id2)`
+- `DELETE /api/cart_items?ids=in.(id1,id2)`
 
 ### Products
 
 - `GET /api/products`
 - `GET /api/products?is_featured=true&is_active=true`
 - `GET /api/products/featured`
-- `GET /api/products/{product_id}`
 
 ### Orders
 
 - `POST /api/orders`
 - `GET /api/orders`
-- `GET /api/orders/{order_id}`
-- `POST /api/order_items`
-
-### Payments
-
-- `POST /api/payments`
-- `GET /api/payments/{payment_id}`
 
 ### Reviews
 
@@ -111,6 +100,18 @@ http://127.0.0.1:8000/docs
 - `GET /api/reviews?order_item_id={order_item_id}`
 - `GET /api/reviews?product_id={product_id}`
 - `GET /api/reviews/products/{product_id}`
+
+### Shops
+
+- `GET /api/shops/my`
+- `POST /api/shops`
+- `GET /api/shops/{shop_id}`
+- `PATCH /api/shops/{shop_id}`
+- `GET /api/shops/{shop_id}/products`
+- `POST /api/shops/{shop_id}/products`
+- `PATCH /api/shops/{shop_id}/products/{product_id}`
+- `GET /api/shops/{shop_id}/orders`
+- `PATCH /api/shops/{shop_id}/orders/{order_id}/status`
 
 ## Goi tu Android
 
@@ -147,26 +148,29 @@ GET products              -> GET /api/products, tra ve List<Products>
 GET products featured     -> GET /api/products/featured, tra ve List<Products>
 GET users                 -> GET /api/users/me
 PATCH users               -> PATCH /api/users/me
-PATCH users compat        -> PATCH /api/users?id=eq.{id}
 POST address              -> POST /api/address
-PATCH address             -> PATCH /api/address/{address_id}
-PATCH address compat      -> PATCH /api/address?id=eq.{id}
+PATCH address             -> PATCH /api/address?id={id}
 GET address               -> GET /api/address
-DELETE address            -> DELETE /api/address/{address_id}
+DELETE address            -> DELETE /api/address?id={id}
 GET cart_items            -> GET /api/cart_items
 POST cart_items           -> POST /api/cart_items
-PATCH cart_items          -> PATCH /api/cart_items/{cart_item_id}
-PATCH cart_items compat   -> PATCH /api/cart_items?id=eq.{id}
-DELETE cart_items by id   -> DELETE /api/cart_items/{cart_item_id}
+PATCH cart_items          -> PATCH /api/cart_items?id={id}
+DELETE cart_items by id   -> DELETE /api/cart_items?id={id}
 DELETE cart_items by user -> DELETE /api/cart_items
 DELETE cart_items batch   -> DELETE /api/cart_items?ids=in.(id1,id2)
 POST orders               -> POST /api/orders
-POST order_items          -> POST /api/order_items
 GET orders                -> GET /api/orders
 GET reviews by item       -> GET /api/reviews?order_item_id={id}
 GET reviews by items      -> GET /api/reviews?order_item_id=in.(id1,id2)
 GET reviews by product    -> GET /api/reviews?product_id={id}
 POST reviews              -> POST /api/reviews
+GET my shops              -> GET /api/shops/my
+POST shop                 -> POST /api/shops
+GET shop products         -> GET /api/shops/{shop_id}/products
+POST shop product         -> POST /api/shops/{shop_id}/products
+PATCH shop product        -> PATCH /api/shops/{shop_id}/products/{product_id}
+GET shop orders           -> GET /api/shops/{shop_id}/orders
+PATCH shop order status   -> PATCH /api/shops/{shop_id}/orders/{order_id}/status
 POST signup               -> POST /api/auth/register
 POST token password       -> POST /api/auth/login
 POST token id_token       -> POST /api/auth/google
@@ -190,8 +194,8 @@ GET /api/products?name=ilike.*abc*
 
 - `getCartItems()` -> `GET /api/cart_items`
 - `addToCart()` -> `POST /api/cart_items`
-- `updateQuantity()` -> `PATCH /api/cart_items/{cart_item_id}`
-- `removeFromCart()` -> `DELETE /api/cart_items/{cart_item_id}`
+- `updateQuantity()` -> `PATCH /api/cart_items?id={cart_item_id}`
+- `removeFromCart()` -> `DELETE /api/cart_items?id={cart_item_id}`
 - `removeItemsFromCart()` -> `DELETE /api/cart_items?ids=in.(id1,id2)`
 - `clearCart()` -> `DELETE /api/cart_items`
 
@@ -206,7 +210,6 @@ Response da include `order_items`.
 ### OrderRepository
 
 - `createOrder()` -> `POST /api/orders`
-- `createOrderItems()` -> `POST /api/order_items`
 
 `POST /api/orders` tra ve `List<Orders>` de khop `Call<List<Orders>>` hien tai.
 
@@ -215,9 +218,9 @@ Response da include `order_items`.
 - `getUser()` -> `GET /api/users/me`
 - `setUser()` -> `PATCH /api/users/me`
 - `getAddress()` -> `GET /api/address`
-- `setAddress()` -> `PATCH /api/address/{address_id}`
+- `setAddress()` -> `PATCH /api/address?id={address_id}`
 - `addAddress()` -> `POST /api/address`
-- `deleteAddress()` -> `DELETE /api/address/{address_id}`
+- `deleteAddress()` -> `DELETE /api/address?id={address_id}`
 - `uploadToSupabase()` -> `POST /api/users/me/avatar?filename=avatar.jpg`
 
 Upload avatar khong goi Supabase Storage truc tiep tu Android nua. Request body la bytes cua anh, header `Content-Type` la MIME type anh, vi du `image/jpeg`.
@@ -234,12 +237,13 @@ Upload avatar khong goi Supabase Storage truc tiep tu Android nua. Request body 
 Code hien tai gia dinh cac bang sau:
 
 - `users`: `id`, `name`, `email`, `phone`, `avatar_url`, `role`, `created_at`
-- `products`: `id`, `name`, `brand`, `price`, `sale_price`, `stock`, `images`, `description`, `usage`, `indications`, `contraindications`, `manufacturer`, `requires_prescription`, `is_featured`, `is_best_seller`, `is_active`, `created_at`
+- `products`: `id`, `name`, `brand`, `price`, `sale_price`, `stock`, `images`, `description`, `usage`, `indications`, `contraindications`, `manufacturer`, `requires_prescription`, `is_featured`, `is_best_seller`, `is_active`, `shop_id`, `created_at`
 - `address`: `id`, `user_id`, `recipient_name`, `location`, `location_name`, `phone_number`
 - `cart_items`: `id`, `user_id`, `product_id`, `quantity`
-- `orders`: `id`, `user_id`, `status`, `payment_method`, `total_amount`, `prescription_url`, `note`, `shipping_name`, `shipping_phone`, `shipping_address`, `created_at`, `updated_at`
+- `orders`: `id`, `user_id`, `status`, `payment_method`, `total_amount`, `prescription_url`, `note`, `shipping_name`, `shipping_phone`, `shipping_address`, `shop_id`, `created_at`, `updated_at`
 - `order_items`: `id`, `order_id`, `product_id`, `product_name`, `product_image`, `price`, `quantity`
 - `payments`: `id`, `order_id`, `method`, `amount`, `transaction_id`, `status`, `payment_data`
 - `reviews`: `id`, `user_id`, `product_id`, `order_item_id`, `rating`, `comment`, `images`
+- `shops`: `id`, `owner_id`, `name`, `description`, `logo_url`, `address`, `is_active`, `created_at`
 
 Neu ten bang/cot trong Supabase hien tai khac, chi can sua trong cac file `app/services/*.py`.

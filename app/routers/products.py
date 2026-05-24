@@ -48,8 +48,3 @@ def get_featured_products(
         offset=offset,
     )
     return result["items"]
-
-
-@router.get("/{product_id}", response_model=Product)
-def get_product(product_id: str) -> dict:
-    return product_service.get_product(product_id)

@@ -7,23 +7,6 @@ from app.services import user_service
 router = APIRouter()
 
 
-@router.get("", response_model=UserProfile)
-def get_user_compat(
-    id: str | None = None,
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    return user_service.get_user(current_user["id"])
-
-
-@router.patch("", response_model=UserProfile)
-def update_user_compat(
-    payload: UserUpdate,
-    id: str | None = None,
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    return user_service.update_user(current_user["id"], payload)
-
-
 @router.get("/me", response_model=UserProfile)
 def get_me(current_user: dict = Depends(get_current_user)) -> dict:
     return user_service.get_user(current_user["id"])

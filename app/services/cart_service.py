@@ -89,6 +89,7 @@ def add_to_cart(user_id: str, payload: CartItemCreate) -> dict:
 
 
 def update_cart_item(user_id: str, cart_item_id: str, payload: CartItemUpdate) -> dict:
+    cart_item_id = parse_eq_filter(cart_item_id) or cart_item_id
     current_response = (
         supabase.table("cart_items")
         .select("id,product_id")
