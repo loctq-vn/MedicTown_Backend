@@ -29,11 +29,11 @@ Sua file `.env`:
 
 ```env
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-or-service-role-key
+SUPABASE_ANON_KEY=your-supabase-anon-key
 CORS_ORIGINS=*
 ```
 
-Neu backend chi doc/ghi qua Row Level Security cua Supabase, co the dung anon key. Neu backend can quyen admin, dung service role key nhung chi luu tren server, khong dua vao Android va khong commit len GitHub.
+Backend hien tai duoc cau hinh de chay qua Row Level Security cua Supabase, nen chi dung anon key. Khong dat service role key vao `SUPABASE_ANON_KEY` hoac `SUPABASE_KEY`; ung dung se tu choi khoi dong neu phat hien service role key. `SUPABASE_KEY` cu van duoc doc tam thoi de tranh gay `.env` hien co, nhung nen doi sang `SUPABASE_ANON_KEY`.
 
 ## Chay server
 

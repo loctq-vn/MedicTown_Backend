@@ -1,0 +1,128 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.address (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  recipient_name text,
+  phone_number text,
+  location text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  location_name text,
+  CONSTRAINT address_pkey PRIMARY KEY (id),
+  CONSTRAINT address_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.cart_items (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  quantity integer NOT NULL DEFAULT 1,
+  added_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT cart_items_pkey PRIMARY KEY (id),
+  CONSTRAINT cart_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT cart_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.order_items (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  order_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  product_name character varying NOT NULL,
+  product_image character varying,
+  price double precision NOT NULL,
+  quantity integer NOT NULL,
+  CONSTRAINT order_items_pkey PRIMARY KEY (id),
+  CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
+  CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.orders (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  status character varying NOT NULL DEFAULT 'pending'::character varying,
+  payment_method character varying NOT NULL,
+  total_amount double precision NOT NULL,
+  prescription_url character varying,
+  note text,
+  shipping_name character varying NOT NULL,
+  shipping_phone character varying NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  shipping_address character varying NOT NULL,
+  shop_id uuid,
+  CONSTRAINT orders_pkey PRIMARY KEY (id),
+  CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT orders_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id)
+);
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  order_id uuid UNIQUE,
+  method character varying NOT NULL CHECK (method::text = ANY (ARRAY['cash'::character varying, 'wallet'::character varying, 'vnpay'::character varying, 'momo'::character varying]::text[])),
+  amount numeric NOT NULL,
+  transaction_id character varying,
+  status character varying DEFAULT 'pending'::character varying CHECK (status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'refunded'::character varying]::text[])),
+  payment_data jsonb,
+  paid_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.products (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name character varying NOT NULL,
+  brand character varying,
+  price double precision NOT NULL,
+  sale_price double precision,
+  stock integer NOT NULL DEFAULT 0,
+  images jsonb,
+  description text,
+  usage text,
+  indications text,
+  contraindications text,
+  manufacturer character varying,
+  requires_prescription boolean DEFAULT false,
+  is_featured boolean DEFAULT false,
+  is_best_seller boolean DEFAULT false,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  shop_id uuid,
+  CONSTRAINT products_pkey PRIMARY KEY (id),
+  CONSTRAINT products_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id)
+);
+CREATE TABLE public.reviews (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  order_item_id uuid UNIQUE,
+  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment text,
+  images jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  CONSTRAINT reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT reviews_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+  CONSTRAINT reviews_order_item_id_fkey FOREIGN KEY (order_item_id) REFERENCES public.order_items(id)
+);
+CREATE TABLE public.shops (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  owner_id uuid NOT NULL,
+  name character varying NOT NULL,
+  description text,
+  logo_url character varying,
+  address text,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT shops_pkey PRIMARY KEY (id),
+  CONSTRAINT shops_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  name character varying NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  phone character varying,
+  avatar_url character varying,
+  role character varying NOT NULL DEFAULT 'customer'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);

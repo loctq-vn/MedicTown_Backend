@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 
-from app.database import supabase
+from app.database import get_supabase_client, supabase
 from app.schemas.auth_schema import (
     AuthResponse,
     GoogleLoginRequest,
@@ -8,6 +8,14 @@ from app.schemas.auth_schema import (
     RegisterRequest,
     UserResponse,
 )
+
+
+def _fallback_name(email: str | None, name: str | None = None) -> str:
+    if name:
+        return name
+    if email and "@" in email:
+        return email.split("@", 1)[0]
+    return "User"
 
 
 def _build_user_response(user, profile: dict | None = None) -> UserResponse:
@@ -21,6 +29,34 @@ def _build_user_response(user, profile: dict | None = None) -> UserResponse:
         role=profile.get("role") or metadata.get("role"),
         user_metadata=metadata,
     )
+
+
+def _ensure_profile(access_token: str | None, profile: dict) -> dict:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A login session is required to create the user profile",
+        )
+
+    user_supabase = get_supabase_client(access_token)
+    existing_response = (
+        user_supabase.table("users")
+        .select("*")
+        .eq("id", profile["id"])
+        .maybe_single()
+        .execute()
+    )
+    if existing_response.data:
+        return existing_response.data
+
+    response = user_supabase.table("users").insert(profile).execute()
+    user_profile = (response.data or [None])[0]
+    if not user_profile:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create user profile",
+        )
+    return user_profile
 
 
 def register(payload: RegisterRequest) -> AuthResponse:
@@ -57,13 +93,13 @@ def register(payload: RegisterRequest) -> AuthResponse:
     profile = {
         "id": response.user.id,
         "email": payload.email,
-        "name": name,
+        "name": _fallback_name(payload.email, name),
         "phone": phone,
         "role": "customer",
     }
-    supabase.table("users").upsert(profile).execute()
 
     session = response.session
+    profile = _ensure_profile(getattr(session, "access_token", None), profile)
     return AuthResponse(
         access_token=getattr(session, "access_token", None),
         refresh_token=getattr(session, "refresh_token", None),
@@ -88,18 +124,25 @@ def login(payload: LoginRequest) -> AuthResponse:
             detail="Invalid email or password",
         )
 
-    profile_response = (
-        supabase.table("users")
-        .select("*")
-        .eq("id", response.user.id)
-        .maybe_single()
-        .execute()
+    metadata = response.user.user_metadata or {}
+    profile = _ensure_profile(
+        response.session.access_token,
+        {
+            "id": response.user.id,
+            "email": response.user.email,
+            "name": _fallback_name(
+                response.user.email,
+                metadata.get("name") or metadata.get("full_name"),
+            ),
+            "phone": metadata.get("phone"),
+            "role": "customer",
+        },
     )
 
     return AuthResponse(
         access_token=response.session.access_token,
         refresh_token=response.session.refresh_token,
-        user=_build_user_response(response.user, profile_response.data),
+        user=_build_user_response(response.user, profile),
     )
 
 
@@ -127,11 +170,14 @@ def login_with_google(payload: GoogleLoginRequest) -> AuthResponse:
     profile = {
         "id": response.user.id,
         "email": response.user.email,
-        "name": (response.user.user_metadata or {}).get("name")
-        or (response.user.user_metadata or {}).get("full_name"),
+        "name": _fallback_name(
+            response.user.email,
+            (response.user.user_metadata or {}).get("name")
+            or (response.user.user_metadata or {}).get("full_name"),
+        ),
         "role": "customer",
     }
-    supabase.table("users").upsert(profile).execute()
+    profile = _ensure_profile(response.session.access_token, profile)
 
     return AuthResponse(
         access_token=response.session.access_token,

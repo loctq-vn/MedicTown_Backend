@@ -3,14 +3,14 @@ from typing import Any, Callable
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.database import supabase
+from app.database import reset_request_supabase_client, set_request_supabase_client, supabase
 
 security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> dict[str, Any]:
+):
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -32,11 +32,16 @@ def get_current_user(
             detail="Invalid or expired token",
         )
 
-    return {
-        "id": user.id,
-        "email": user.email,
-        "metadata": user.user_metadata or {},
-    }
+    request_client_token = set_request_supabase_client(credentials.credentials)
+    try:
+        yield {
+            "id": user.id,
+            "email": user.email,
+            "metadata": user.user_metadata or {},
+            "access_token": credentials.credentials,
+        }
+    finally:
+        reset_request_supabase_client(request_client_token)
 
 
 def require_role(*allowed_roles: str) -> Callable[[dict[str, Any]], dict[str, Any]]:
