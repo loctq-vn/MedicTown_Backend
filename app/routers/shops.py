@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, Request, status
 from pydantic import BaseModel
 
 from app.dependencies import get_current_user
@@ -59,6 +59,24 @@ def create_shop_product(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     return shop_service.create_shop_product(current_user["id"], shop_id, payload)
+
+
+@router.post("/{shop_id}/products/images")
+async def upload_shop_product_image(
+    shop_id: str,
+    request: Request,
+    filename: str | None = None,
+    content_type: str | None = Header(default=None, alias="Content-Type"),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    content = await request.body()
+    return await shop_service.upload_product_image(
+        current_user["id"],
+        shop_id,
+        content,
+        content_type=content_type,
+        filename=filename,
+    )
 
 
 @router.patch("/{shop_id}/products/{product_id}", response_model=Product)

@@ -67,6 +67,27 @@ CREATE TABLE public.payments (
   CONSTRAINT payments_pkey PRIMARY KEY (id),
   CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
 );
+CREATE TABLE public.product_categories (
+  id character varying NOT NULL,
+  name character varying NOT NULL,
+  description text,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_categories_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.product_subcategories (
+  id character varying NOT NULL,
+  category_id character varying NOT NULL,
+  name character varying NOT NULL,
+  description text,
+  requires_prescription_default boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_subcategories_pkey PRIMARY KEY (id),
+  CONSTRAINT product_subcategories_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.product_categories(id)
+);
 CREATE TABLE public.products (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   name character varying NOT NULL,
@@ -75,10 +96,9 @@ CREATE TABLE public.products (
   sale_price double precision,
   stock integer NOT NULL DEFAULT 0,
   images jsonb,
-  description text,
   usage text,
-  indications text,
-  contraindications text,
+  uses text,
+  precautions text,
   manufacturer character varying,
   requires_prescription boolean DEFAULT false,
   is_featured boolean DEFAULT false,
@@ -86,8 +106,13 @@ CREATE TABLE public.products (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   shop_id uuid,
+  subcategory_id character varying NOT NULL,
+  side_effects text,
+  storage text,
+  unit text NOT NULL,
   CONSTRAINT products_pkey PRIMARY KEY (id),
-  CONSTRAINT products_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id)
+  CONSTRAINT products_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id),
+  CONSTRAINT products_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.product_subcategories(id)
 );
 CREATE TABLE public.reviews (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

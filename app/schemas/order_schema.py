@@ -29,6 +29,20 @@ class OrderItem(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
+class Payment(BaseModel):
+    id: str | None = None
+    order_id: str | None = None
+    method: str | None = None
+    amount: float = 0
+    transaction_id: str | None = None
+    status: str | None = None
+    paid_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="allow")
+
+
 class Order(BaseModel):
     id: str
     user_id: str
@@ -42,6 +56,7 @@ class Order(BaseModel):
     shipping_address: str | None = None
     shop_id: str | None = None
     order_items: list[OrderItem] = Field(default_factory=list)
+    payments: list[Payment] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

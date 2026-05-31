@@ -1,8 +1,63 @@
+from uuid import uuid4
+
 from fastapi import HTTPException, status
 
+from app.config import settings
 from app.database import supabase
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.schemas.shop_schema import ShopCreate, ShopUpdate
+
+
+def _apply_subcategory_rules(data: dict, current_product: dict | None = None) -> None:
+    subcategory_id = data.get("subcategory_id") or (
+        current_product or {}
+    ).get("subcategory_id")
+    if not subcategory_id:
+        return
+
+    response = (
+        supabase.table("product_subcategories")
+        .select("id,requires_prescription_default,is_active")
+        .eq("id", subcategory_id)
+        .eq("is_active", True)
+        .maybe_single()
+        .execute()
+    )
+    subcategory = response.data
+    if not subcategory:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid product subcategory",
+        )
+    if subcategory.get("requires_prescription_default"):
+        data["requires_prescription"] = True
+
+
+def _validate_product_business_rules(data: dict, current_product: dict | None = None) -> None:
+    current_product = current_product or {}
+    price = data.get("price", current_product.get("price"))
+    sale_price = data.get("sale_price", current_product.get("sale_price"))
+    images = data.get("images", current_product.get("images") or [])
+
+    if not images:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Product must have at least one image",
+        )
+
+    if sale_price is None:
+        return
+
+    if float(sale_price) <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sale price must be greater than 0",
+        )
+    if price is not None and float(sale_price) > float(price):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sale price must be less than or equal to price",
+        )
 
 
 def list_my_shops(user_id: str) -> list[dict]:
@@ -88,6 +143,8 @@ def create_shop_product(user_id: str, shop_id: str, payload: ProductCreate) -> d
     get_my_shop(user_id, shop_id)
     data = payload.model_dump(exclude_unset=True)
     data["shop_id"] = shop_id
+    _apply_subcategory_rules(data)
+    _validate_product_business_rules(data)
 
     response = supabase.table("products").insert(data).execute()
     product = (response.data or [None])[0]
@@ -99,6 +156,47 @@ def create_shop_product(user_id: str, shop_id: str, payload: ProductCreate) -> d
     return product
 
 
+async def upload_product_image(
+    user_id: str,
+    shop_id: str,
+    content: bytes,
+    content_type: str | None = None,
+    filename: str | None = None,
+) -> dict:
+    get_my_shop(user_id, shop_id)
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty file",
+        )
+
+    content_type = content_type or "image/jpeg"
+    extension = "jpg"
+    if filename and "." in filename:
+        extension = filename.rsplit(".", 1)[1].lower()
+    file_path = f"shops/{shop_id}/products/upload_{uuid4().hex}.{extension}"
+
+    try:
+        supabase.storage.from_(settings.supabase_storage_bucket).upload(
+            file_path,
+            content,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+        public_url = supabase.storage.from_(settings.supabase_storage_bucket).get_public_url(
+            file_path
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to upload product image",
+        ) from exc
+
+    return {
+        "path": file_path,
+        "url": public_url,
+    }
+
+
 def update_shop_product(
     user_id: str,
     shop_id: str,
@@ -106,22 +204,26 @@ def update_shop_product(
     payload: ProductUpdate,
 ) -> dict:
     get_my_shop(user_id, shop_id)
+    current_response = (
+        supabase.table("products")
+        .select("*")
+        .eq("id", product_id)
+        .eq("shop_id", shop_id)
+        .maybe_single()
+        .execute()
+    )
+    if not current_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
     data = payload.model_dump(exclude_unset=True)
     if not data:
-        response = (
-            supabase.table("products")
-            .select("*")
-            .eq("id", product_id)
-            .eq("shop_id", shop_id)
-            .maybe_single()
-            .execute()
-        )
-        if not response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found",
-            )
-        return response.data
+        return current_response.data
+
+    _apply_subcategory_rules(data, current_response.data)
+    _validate_product_business_rules(data, current_response.data)
 
     response = (
         supabase.table("products")
@@ -143,7 +245,7 @@ def list_shop_orders(user_id: str, shop_id: str) -> list[dict]:
     get_my_shop(user_id, shop_id)
     response = (
         supabase.table("orders")
-        .select("*,order_items(*)")
+        .select("*,order_items(*),payments(*)")
         .eq("shop_id", shop_id)
         .order("created_at", desc=True)
         .execute()
@@ -151,6 +253,7 @@ def list_shop_orders(user_id: str, shop_id: str) -> list[dict]:
     orders = response.data or []
     for order in orders:
         order["order_items"] = order.get("order_items") or []
+        order["payments"] = order.get("payments") or []
     return orders
 
 

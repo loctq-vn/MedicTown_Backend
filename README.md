@@ -232,18 +232,4 @@ Upload avatar khong goi Supabase Storage truc tiep tu Android nua. Request body 
 - `getProductReviews(productId)` -> `GET /api/reviews?product_id={productId}`
 - `submitReview()` -> `POST /api/reviews`
 
-## Bang Supabase du kien
-
-Code hien tai gia dinh cac bang sau:
-
-- `users`: `id`, `name`, `email`, `phone`, `avatar_url`, `role`, `created_at`
-- `products`: `id`, `name`, `brand`, `price`, `sale_price`, `stock`, `images`, `description`, `usage`, `indications`, `contraindications`, `manufacturer`, `requires_prescription`, `is_featured`, `is_best_seller`, `is_active`, `shop_id`, `created_at`
-- `address`: `id`, `user_id`, `recipient_name`, `location`, `location_name`, `phone_number`
-- `cart_items`: `id`, `user_id`, `product_id`, `quantity`
-- `orders`: `id`, `user_id`, `status`, `payment_method`, `total_amount`, `prescription_url`, `note`, `shipping_name`, `shipping_phone`, `shipping_address`, `shop_id`, `created_at`, `updated_at`
-- `order_items`: `id`, `order_id`, `product_id`, `product_name`, `product_image`, `price`, `quantity`
-- `payments`: `id`, `order_id`, `method`, `amount`, `transaction_id`, `status`, `payment_data`
-- `reviews`: `id`, `user_id`, `product_id`, `order_item_id`, `rating`, `comment`, `images`
-- `shops`: `id`, `owner_id`, `name`, `description`, `logo_url`, `address`, `is_active`, `created_at`
-
 Neu ten bang/cot trong Supabase hien tai khac, chi can sua trong cac file `app/services/*.py`.

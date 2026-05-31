@@ -208,7 +208,7 @@ def create_order(user_id: str, payload: OrderCreate) -> list[dict]:
 def list_orders(user_id: str) -> list[dict]:
     response = (
         supabase.table("orders")
-        .select("*,order_items(*)")
+        .select("*,order_items(*),payments(*)")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()
@@ -217,4 +217,5 @@ def list_orders(user_id: str) -> list[dict]:
     orders = response.data or []
     for order in orders:
         order["order_items"] = order.get("order_items") or []
+        order["payments"] = order.get("payments") or []
     return orders

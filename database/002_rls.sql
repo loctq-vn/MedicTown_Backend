@@ -452,3 +452,40 @@ to authenticated
 using (
   user_id = auth.uid()
 );
+
+alter table public.product_categories enable row level security;
+alter table public.product_subcategories enable row level security;
+
+drop policy if exists "Anyone can read active product categories"
+on public.product_categories;
+
+drop policy if exists "Anyone can read active product subcategories"
+on public.product_subcategories;
+
+create policy "Anyone can read active product categories"
+on public.product_categories
+for select
+to anon, authenticated
+using (
+  is_active = true
+);
+
+create policy "Anyone can read active product subcategories"
+on public.product_subcategories
+for select
+to anon, authenticated
+using (
+  is_active = true
+  and exists (
+    select 1
+    from public.product_categories c
+    where c.id = product_subcategories.category_id
+      and c.is_active = true
+  )
+);
+
+grant select on public.product_categories to anon, authenticated;
+grant select on public.product_subcategories to anon, authenticated;
+
+revoke insert, update, delete on public.product_categories from anon, authenticated;
+revoke insert, update, delete on public.product_subcategories from anon, authenticated;

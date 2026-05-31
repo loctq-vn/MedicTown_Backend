@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from app.schemas.product_schema import Product
+from app.schemas.product_schema import Product, ProductCategory, ProductSubcategory
 from app.services import product_service
 
 router = APIRouter()
@@ -11,6 +11,7 @@ def list_products(
     search: str | None = None,
     name: str | None = None,
     category_id: str | None = None,
+    subcategory_id: str | None = None,
     is_featured: bool | None = None,
     is_active: bool | None = None,
     limit: int = Query(default=20, ge=1, le=100),
@@ -19,6 +20,8 @@ def list_products(
     if name:
         result = product_service.list_products_by_name_filter(
             name_filter=name,
+            category_id=category_id,
+            subcategory_id=subcategory_id,
             is_featured=is_featured,
             is_active=is_active,
             limit=limit,
@@ -28,12 +31,23 @@ def list_products(
         result = product_service.list_products(
             search=search,
             category_id=category_id,
+            subcategory_id=subcategory_id,
             is_featured=is_featured,
             is_active=is_active,
             limit=limit,
             offset=offset,
         )
     return result["items"]
+
+
+@router.get("/categories", response_model=list[ProductCategory])
+def list_categories() -> list[dict]:
+    return product_service.list_categories()
+
+
+@router.get("/subcategories", response_model=list[ProductSubcategory])
+def list_subcategories(category_id: str | None = None) -> list[dict]:
+    return product_service.list_subcategories(category_id=category_id)
 
 
 @router.get("/featured", response_model=list[Product])

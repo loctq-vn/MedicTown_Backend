@@ -1,5 +1,19 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+def _is_http_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def _validate_image_urls(images: list[str]) -> None:
+    if not images:
+        raise ValueError("Product must have at least one image")
+    if any(not _is_http_url(image) for image in images):
+        raise ValueError("Product images must be valid http or https URLs")
 
 
 class ProductBase(BaseModel):
@@ -7,58 +21,86 @@ class ProductBase(BaseModel):
     brand: str | None = None
     price: float = 0
     sale_price: float | None = None
+    unit: str | None = None
     stock: int = 0
     images: list[str] = Field(default_factory=list)
-    description: str | None = None
     usage: str | None = None
-    indications: str | None = None
-    contraindications: str | None = None
+    uses: str | None = None
+    side_effects: str | None = None
+    precautions: str | None = None
+    storage: str | None = None
     manufacturer: str | None = None
     requires_prescription: bool = False
     is_featured: bool = False
     is_best_seller: bool = False
     is_active: bool = True
     shop_id: str | None = None
+    subcategory_id: str | None = None
 
 
 class ProductCreate(BaseModel):
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=3, max_length=120)
     brand: str | None = None
     price: float = Field(ge=0)
-    sale_price: float | None = Field(default=None, ge=0)
+    sale_price: float | None = Field(default=None, gt=0)
+    unit: str | None = Field(default=None, max_length=50)
     stock: int = Field(default=0, ge=0)
     images: list[str] = Field(default_factory=list)
-    description: str | None = None
-    usage: str | None = None
-    indications: str | None = None
-    contraindications: str | None = None
+    usage: str | None = Field(default=None, max_length=2000)
+    uses: str | None = Field(default=None, max_length=2000)
+    side_effects: str | None = Field(default=None, max_length=2000)
+    precautions: str | None = Field(default=None, max_length=2000)
+    storage: str | None = Field(default=None, max_length=2000)
     manufacturer: str | None = None
     requires_prescription: bool = False
     is_featured: bool = False
     is_best_seller: bool = False
     is_active: bool = True
+    subcategory_id: str | None = None
 
     model_config = ConfigDict(extra="ignore")
 
+    @model_validator(mode="after")
+    def validate_product_create(self) -> "ProductCreate":
+        if self.sale_price is not None and self.sale_price > self.price:
+            raise ValueError("Sale price must be less than or equal to price")
+        _validate_image_urls(self.images)
+        return self
+
 
 class ProductUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=3, max_length=120)
     brand: str | None = None
     price: float | None = Field(default=None, ge=0)
-    sale_price: float | None = Field(default=None, ge=0)
+    sale_price: float | None = Field(default=None, gt=0)
+    unit: str | None = Field(default=None, max_length=50)
     stock: int | None = Field(default=None, ge=0)
     images: list[str] | None = None
-    description: str | None = None
-    usage: str | None = None
-    indications: str | None = None
-    contraindications: str | None = None
+    usage: str | None = Field(default=None, max_length=2000)
+    uses: str | None = Field(default=None, max_length=2000)
+    side_effects: str | None = Field(default=None, max_length=2000)
+    precautions: str | None = Field(default=None, max_length=2000)
+    storage: str | None = Field(default=None, max_length=2000)
     manufacturer: str | None = None
     requires_prescription: bool | None = None
     is_featured: bool | None = None
     is_best_seller: bool | None = None
     is_active: bool | None = None
+    subcategory_id: str | None = None
 
     model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_product_update(self) -> "ProductUpdate":
+        if (
+            self.sale_price is not None
+            and self.price is not None
+            and self.sale_price > self.price
+        ):
+            raise ValueError("Sale price must be less than or equal to price")
+        if self.images is not None:
+            _validate_image_urls(self.images)
+        return self
 
 
 class Product(ProductBase):
@@ -71,3 +113,25 @@ class Product(ProductBase):
 class ProductListResponse(BaseModel):
     items: list[Product]
     total: int
+
+
+class ProductCategory(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    sort_order: int = 0
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True, extra="allow")
+
+
+class ProductSubcategory(BaseModel):
+    id: str
+    category_id: str
+    name: str
+    description: str | None = None
+    requires_prescription_default: bool = False
+    sort_order: int = 0
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True, extra="allow")
