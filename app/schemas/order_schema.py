@@ -36,6 +36,7 @@ class Payment(BaseModel):
     amount: float = 0
     transaction_id: str | None = None
     status: str | None = None
+    payment_data: dict | None = None
     paid_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -47,7 +48,6 @@ class Order(BaseModel):
     id: str
     user_id: str
     status: str = "pending"
-    payment_method: str | None = None
     total_amount: float = 0
     prescription_url: str | None = None
     note: str | None = None

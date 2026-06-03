@@ -6,6 +6,8 @@ from app.config import settings
 from app.database import supabase
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.schemas.shop_schema import ShopCreate, ShopUpdate
+from app.services.order_service import normalize_order_relations
+from app.services.upload_validation import validate_image_upload
 
 
 def _apply_subcategory_rules(data: dict, current_product: dict | None = None) -> None:
@@ -48,10 +50,10 @@ def _validate_product_business_rules(data: dict, current_product: dict | None = 
     if sale_price is None:
         return
 
-    if float(sale_price) <= 0:
+    if float(sale_price) < 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sale price must be greater than 0",
+            detail="Sale price must be greater than or equal to 0",
         )
     if price is not None and float(sale_price) > float(price):
         raise HTTPException(
@@ -164,16 +166,7 @@ async def upload_product_image(
     filename: str | None = None,
 ) -> dict:
     get_my_shop(user_id, shop_id)
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty file",
-        )
-
-    content_type = content_type or "image/jpeg"
-    extension = "jpg"
-    if filename and "." in filename:
-        extension = filename.rsplit(".", 1)[1].lower()
+    extension, content_type = validate_image_upload(content, content_type, filename)
     file_path = f"shops/{shop_id}/products/upload_{uuid4().hex}.{extension}"
 
     try:
@@ -222,6 +215,9 @@ def update_shop_product(
     if not data:
         return current_response.data
 
+    if data.get("price") == 0 and "sale_price" not in data:
+        data["sale_price"] = None
+
     _apply_subcategory_rules(data, current_response.data)
     _validate_product_business_rules(data, current_response.data)
 
@@ -252,8 +248,7 @@ def list_shop_orders(user_id: str, shop_id: str) -> list[dict]:
     )
     orders = response.data or []
     for order in orders:
-        order["order_items"] = order.get("order_items") or []
-        order["payments"] = order.get("payments") or []
+        normalize_order_relations(order)
     return orders
 
 

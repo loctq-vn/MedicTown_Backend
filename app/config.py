@@ -16,9 +16,24 @@ class Settings(BaseSettings):
         ...,
         validation_alias=AliasChoices("SUPABASE_ANON_KEY", "SUPABASE_KEY"),
     )
+    supabase_service_role_key: str | None = Field(
+        None,
+        alias="SUPABASE_SERVICE_ROLE_KEY",
+    )
     supabase_storage_bucket: str = Field("avatars", alias="SUPABASE_STORAGE_BUCKET")
+    upload_max_bytes: int = Field(5 * 1024 * 1024, alias="UPLOAD_MAX_BYTES")
 
     cors_origins_raw: str = Field("*", alias="CORS_ORIGINS")
+
+    momo_partner_code: str | None = Field(None, alias="MOMO_PARTNER_CODE")
+    momo_access_key: str | None = Field(None, alias="MOMO_ACCESS_KEY")
+    momo_secret_key: str | None = Field(None, alias="MOMO_SECRET_KEY")
+    momo_create_endpoint: str = Field(
+        "https://test-payment.momo.vn/v2/gateway/api/create",
+        alias="MOMO_CREATE_ENDPOINT",
+    )
+    momo_redirect_url: str | None = Field(None, alias="MOMO_REDIRECT_URL")
+    momo_ipn_url: str | None = Field(None, alias="MOMO_IPN_URL")
 
     model_config = SettingsConfigDict(
         env_file=".env",

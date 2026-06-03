@@ -4,6 +4,7 @@ from uuid import uuid4
 from app.config import settings
 from app.database import supabase
 from app.schemas.user_schema import UserUpdate
+from app.services.upload_validation import validate_image_upload
 
 
 def get_user(user_id: str) -> dict:
@@ -52,16 +53,7 @@ async def upload_avatar(
     content_type: str | None = None,
     filename: str | None = None,
 ) -> dict:
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty file",
-        )
-
-    content_type = content_type or "image/jpeg"
-    extension = "jpg"
-    if filename and "." in filename:
-        extension = filename.rsplit(".", 1)[1].lower()
+    extension, content_type = validate_image_upload(content, content_type, filename)
     file_path = f"{user_id}/upload_{uuid4().hex}.{extension}"
 
     try:

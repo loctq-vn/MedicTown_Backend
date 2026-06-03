@@ -1,7 +1,7 @@
 from datetime import datetime
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def _is_http_url(value: str) -> bool:
@@ -17,11 +17,11 @@ def _validate_image_urls(images: list[str]) -> None:
 
 
 class ProductBase(BaseModel):
-    name: str = ""
+    name: str
     brand: str | None = None
-    price: float = 0
+    price: float
     sale_price: float | None = None
-    unit: str | None = None
+    unit: str
     stock: int = 0
     images: list[str] = Field(default_factory=list)
     usage: str | None = None
@@ -35,15 +35,15 @@ class ProductBase(BaseModel):
     is_best_seller: bool = False
     is_active: bool = True
     shop_id: str | None = None
-    subcategory_id: str | None = None
+    subcategory_id: str
 
 
 class ProductCreate(BaseModel):
     name: str = Field(min_length=3, max_length=120)
-    brand: str | None = None
+    brand: str | None = Field(default=None, max_length=120)
     price: float = Field(ge=0)
-    sale_price: float | None = Field(default=None, gt=0)
-    unit: str | None = Field(default=None, max_length=50)
+    sale_price: float | None = Field(default=None, ge=0)
+    unit: str = Field(min_length=1, max_length=50)
     stock: int = Field(default=0, ge=0)
     images: list[str] = Field(default_factory=list)
     usage: str | None = Field(default=None, max_length=2000)
@@ -51,12 +51,12 @@ class ProductCreate(BaseModel):
     side_effects: str | None = Field(default=None, max_length=2000)
     precautions: str | None = Field(default=None, max_length=2000)
     storage: str | None = Field(default=None, max_length=2000)
-    manufacturer: str | None = None
+    manufacturer: str | None = Field(default=None, max_length=120)
     requires_prescription: bool = False
     is_featured: bool = False
     is_best_seller: bool = False
     is_active: bool = True
-    subcategory_id: str | None = None
+    subcategory_id: str = Field(min_length=1, max_length=120)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -67,13 +67,21 @@ class ProductCreate(BaseModel):
         _validate_image_urls(self.images)
         return self
 
+    @field_validator("name", "unit", "subcategory_id")
+    @classmethod
+    def validate_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be blank")
+        return value
+
 
 class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=3, max_length=120)
-    brand: str | None = None
+    brand: str | None = Field(default=None, max_length=120)
     price: float | None = Field(default=None, ge=0)
-    sale_price: float | None = Field(default=None, gt=0)
-    unit: str | None = Field(default=None, max_length=50)
+    sale_price: float | None = Field(default=None, ge=0)
+    unit: str | None = Field(default=None, min_length=1, max_length=50)
     stock: int | None = Field(default=None, ge=0)
     images: list[str] | None = None
     usage: str | None = Field(default=None, max_length=2000)
@@ -81,12 +89,12 @@ class ProductUpdate(BaseModel):
     side_effects: str | None = Field(default=None, max_length=2000)
     precautions: str | None = Field(default=None, max_length=2000)
     storage: str | None = Field(default=None, max_length=2000)
-    manufacturer: str | None = None
+    manufacturer: str | None = Field(default=None, max_length=120)
     requires_prescription: bool | None = None
     is_featured: bool | None = None
     is_best_seller: bool | None = None
     is_active: bool | None = None
-    subcategory_id: str | None = None
+    subcategory_id: str | None = Field(default=None, min_length=1, max_length=120)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -101,6 +109,16 @@ class ProductUpdate(BaseModel):
         if self.images is not None:
             _validate_image_urls(self.images)
         return self
+
+    @field_validator("name", "unit", "subcategory_id")
+    @classmethod
+    def validate_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("Field cannot be blank")
+        return value
 
 
 class Product(ProductBase):

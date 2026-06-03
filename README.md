@@ -31,14 +31,41 @@ Sua file `.env`:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 CORS_ORIGINS=*
+
+# Can cho MoMo IPN/callback cap nhat trang thai payment tu server-to-server.
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+# MoMo sandbox/production credentials.
+MOMO_PARTNER_CODE=your-momo-partner-code
+MOMO_ACCESS_KEY=your-momo-access-key
+MOMO_SECRET_KEY=your-momo-secret-key
+MOMO_CREATE_ENDPOINT=https://test-payment.momo.vn/v2/gateway/api/create
+MOMO_REDIRECT_URL=https://your-static-domain.ngrok-free.app/api/payments/momo/redirect
+MOMO_IPN_URL=https://your-static-domain.ngrok-free.app/api/payments/momo/ipn
 ```
 
-Backend hien tai duoc cau hinh de chay qua Row Level Security cua Supabase, nen chi dung anon key. Khong dat service role key vao `SUPABASE_ANON_KEY` hoac `SUPABASE_KEY`; ung dung se tu choi khoi dong neu phat hien service role key. `SUPABASE_KEY` cu van duoc doc tam thoi de tranh gay `.env` hien co, nhung nen doi sang `SUPABASE_ANON_KEY`.
+Backend hien tai duoc cau hinh de chay qua Row Level Security cua Supabase, nen chi dung anon key cho request cua user. Khong dat service role key vao `SUPABASE_ANON_KEY` hoac `SUPABASE_KEY`; ung dung se tu choi khoi dong neu phat hien service role key. `SUPABASE_SERVICE_ROLE_KEY` chi dung cho callback server-to-server nhu MoMo IPN, vi callback nay khong co Bearer token cua user. `SUPABASE_KEY` cu van duoc doc tam thoi de tranh gay `.env` hien co, nhung nen doi sang `SUPABASE_ANON_KEY`.
 
-## Chay server
+## Chay backend local
 
-```bash
-uvicorn app.main:app --reload
+Mo terminal tai thu muc backend:
+
+```powershell
+cd D:\MedicTown_All\MedicTown_Full\MedicTown_Backend
+```
+
+Neu chua cai dependency, chay:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Chay backend:
+
+```powershell
+.\scripts\start_backend.ps1
 ```
 
 Mac dinh API chay tai:
@@ -52,6 +79,80 @@ Tai lieu Swagger:
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+Neu terminal bao loi cong `8000` da duoc dung, backend co the dang chay san. Kiem tra nhanh:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/
+```
+
+Neu can tat server cu, tim process dang dung cong `8000`:
+
+```powershell
+netstat -ano | findstr ":8000"
+```
+
+Sau do dung PID o cot cuoi de tat:
+
+```powershell
+Stop-Process -Id <PID>
+```
+
+Chay lai backend:
+
+```powershell
+.\scripts\start_backend.ps1
+```
+
+## Public backend bang ngrok
+
+Backend chay local tai `http://127.0.0.1:8000`. De public ra internet trong luc dev/test, dung ngrok:
+
+1. Dat `ngrok.exe` vao thu muc:
+
+```text
+D:\MedicTown_All\MedicTown_Full\MedicTown_Backend\tools\ngrok.exe
+```
+
+2. Dang nhap ngrok bang authtoken:
+
+```powershell
+.\tools\ngrok.exe config add-authtoken <your-ngrok-authtoken>
+```
+
+3. Chay backend o terminal thu nhat:
+
+```powershell
+.\scripts\start_backend.ps1
+```
+
+4. Mo terminal thu hai tai cung thu muc backend va chay tunnel:
+
+```powershell
+.\scripts\start_ngrok.ps1
+```
+
+Lenh tren se tao URL public tam thoi. Neu tai khoan ngrok co static domain mien phi, chay:
+
+```powershell
+$env:NGROK_DOMAIN="your-static-domain.ngrok-free.app"
+.\scripts\start_ngrok.ps1
+```
+
+Khi co URL public, cap nhat Android base URL thanh:
+
+```java
+public static final String BACKEND_URL = "https://your-static-domain.ngrok-free.app/api/";
+```
+
+Neu dung MoMo callback, cap nhat `.env` theo cung domain:
+
+```env
+MOMO_REDIRECT_URL=https://your-static-domain.ngrok-free.app/api/payments/momo/redirect
+MOMO_IPN_URL=https://your-static-domain.ngrok-free.app/api/payments/momo/ipn
+```
+
+Voi static domain, URL giu nguyen qua cac lan chay. Voi tunnel tam thoi, URL se doi moi lan va can cap nhat lai Android/MoMo.
 
 ## API hien co
 
