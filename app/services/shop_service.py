@@ -6,8 +6,19 @@ from app.config import settings
 from app.database import supabase
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.schemas.shop_schema import ShopCreate, ShopUpdate
-from app.services.order_service import normalize_order_relations
+from app.services.order_service import (
+    cancel_order_and_restore_stock,
+    confirm_order_and_deduct_stock,
+    normalize_order_relations,
+)
 from app.services.upload_validation import validate_image_upload
+
+
+SHOP_ORDER_STATUS_TRANSITIONS = {
+    "confirmed": {"pending"},
+    "shipping": {"confirmed"},
+    "cancelled": {"pending", "confirmed", "shipping", "cancelled"},
+}
 
 
 def _apply_subcategory_rules(data: dict, current_product: dict | None = None) -> None:
@@ -254,24 +265,60 @@ def list_shop_orders(user_id: str, shop_id: str) -> list[dict]:
 
 def update_shop_order_status(user_id: str, shop_id: str, order_id: str, status_value: str) -> dict:
     get_my_shop(user_id, shop_id)
-    allowed_statuses = {"pending", "confirmed", "shipping", "completed", "cancelled"}
-    if status_value not in allowed_statuses:
+    next_status = status_value.strip().lower()
+    if next_status not in SHOP_ORDER_STATUS_TRANSITIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid order status",
         )
 
-    response = (
+    current_response = (
         supabase.table("orders")
-        .update({"status": status_value})
+        .select("id,status")
         .eq("id", order_id)
         .eq("shop_id", shop_id)
+        .maybe_single()
+        .execute()
+    )
+    current_order = current_response.data
+    if not current_order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    current_status = (current_order.get("status") or "").strip().lower()
+    if not _is_valid_shop_order_status_transition(current_status, next_status):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Invalid order status transition: "
+                f"{current_status or 'unknown'} -> {next_status}"
+            ),
+        )
+
+    if current_status == "pending" and next_status == "confirmed":
+        return confirm_order_and_deduct_stock(supabase, shop_id, order_id)
+
+    if next_status == "cancelled":
+        return cancel_order_and_restore_stock(supabase, shop_id, order_id)
+
+    response = (
+        supabase.table("orders")
+        .update({"status": next_status})
+        .eq("id", order_id)
+        .eq("shop_id", shop_id)
+        .eq("status", current_status)
         .execute()
     )
     order = (response.data or [None])[0]
     if not order:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Order status was changed by another request",
         )
     return order
+
+
+def _is_valid_shop_order_status_transition(current_status: str, next_status: str) -> bool:
+    return current_status in SHOP_ORDER_STATUS_TRANSITIONS.get(next_status, set())

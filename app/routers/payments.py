@@ -1,9 +1,19 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
+from app.dependencies import get_current_user
+from app.schemas.order_schema import OrderCreate, Payment
 from app.services import payment_service
 
 router = APIRouter()
+
+
+@router.post("/momo/checkout", response_model=Payment)
+def create_momo_checkout(
+    payload: OrderCreate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return payment_service.create_momo_checkout(current_user["id"], payload)
 
 
 @router.post("/momo/ipn")

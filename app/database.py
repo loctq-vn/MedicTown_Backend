@@ -13,7 +13,6 @@ def get_base_supabase_client() -> Client:
     return create_client(settings.supabase_url, settings.supabase_anon_key)
 
 
-@lru_cache
 def get_service_supabase_client() -> Client:
     if not settings.supabase_service_role_key:
         raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is required for server callbacks")

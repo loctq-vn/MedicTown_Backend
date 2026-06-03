@@ -11,6 +11,8 @@ class OrderCreate(BaseModel):
     cart_item_ids: list[str] = Field(default_factory=list)
     direct_items: list[DirectOrderItemCreate] = Field(default_factory=list)
     payment_method: str | None = None
+    shipping_name: str | None = None
+    shipping_phone: str | None = None
     shipping_address: str | None = None
     note: str | None = None
 
@@ -59,5 +61,7 @@ class Order(BaseModel):
     payments: list[Payment] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    stock_deducted_at: datetime | None = None
+    stock_restored_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="allow")
