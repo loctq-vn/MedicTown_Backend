@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from app.dependencies import get_current_user
-from app.schemas.order_schema import OrderCreate, Payment
+from app.schemas.order_schema import FakePaymentMethodCreate, OrderCreate, Payment
 from app.services import payment_service
 
 router = APIRouter()
@@ -14,6 +14,14 @@ def create_momo_checkout(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     return payment_service.create_momo_checkout(current_user["id"], payload)
+
+
+@router.post("/fake/method", response_model=Payment)
+def create_fake_payment_method(
+    payload: FakePaymentMethodCreate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return payment_service.create_fake_payment_method(current_user["id"], payload)
 
 
 @router.post("/momo/ipn")

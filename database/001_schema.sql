@@ -48,10 +48,10 @@ CREATE TABLE public.orders (
   shipping_phone character varying NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
-  stock_deducted_at timestamp with time zone,
-  stock_restored_at timestamp with time zone,
   shipping_address character varying NOT NULL,
   shop_id uuid,
+  stock_deducted_at timestamp with time zone,
+  stock_restored_at timestamp with time zone,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT orders_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id)

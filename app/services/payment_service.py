@@ -13,7 +13,7 @@ from fastapi import HTTPException, status
 
 from app.config import settings
 from app.database import get_service_supabase_client, supabase
-from app.schemas.order_schema import OrderCreate
+from app.schemas.order_schema import FakePaymentMethodCreate, OrderCreate
 from app.services import order_service
 
 
@@ -29,8 +29,10 @@ def normalize_payment_method(payment_method: str | None) -> str:
         "cod": "cash",
         "cash": "cash",
         "momo": "momo",
+        "fake_momo": "momo",
         "wallet": "wallet",
         "vnpay": "vnpay",
+        "fake_vnpay": "vnpay",
     }
     method = aliases.get(normalized)
     if not method:
@@ -39,6 +41,10 @@ def normalize_payment_method(payment_method: str | None) -> str:
             detail="Unsupported payment method",
         )
     return method
+
+
+def is_fake_payment_method(payment_method: str | None) -> bool:
+    return (payment_method or "").strip().lower() in {"fake_momo", "fake_vnpay"}
 
 
 def create_initial_payment(
@@ -110,6 +116,113 @@ def attach_momo_checkout_data(order: dict, payment: dict, amount: Decimal) -> di
             detail="Unable to update MoMo payment",
         )
     return updated_payment
+
+
+def create_fake_payment_method(user_id: str, payload: FakePaymentMethodCreate) -> dict:
+    if (settings.environment or "").strip().lower() == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fake payments are disabled in production",
+        )
+
+    requested_method = (payload.method or "").strip().lower()
+    method = normalize_payment_method(requested_method)
+    if requested_method not in {"fake_momo", "fake_vnpay"} or method not in {"momo", "vnpay"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported fake payment method",
+        )
+
+    client = get_service_supabase_client()
+    order = _load_user_order_for_fake_payment(client, user_id, payload.order_id)
+    if (order.get("status") or "").strip().lower() == "pending":
+        order_service.confirm_order_and_deduct_stock(client, order.get("shop_id"), order["id"])
+
+    return _upsert_completed_fake_payment(client, order, method, requested_method)
+
+
+def _load_user_order_for_fake_payment(client, user_id: str, order_id: str) -> dict:
+    response = (
+        client.table("orders")
+        .select("id,user_id,shop_id,total_amount,status")
+        .eq("id", order_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    order = (response.data or [None])[0]
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+    return order
+
+
+def _upsert_completed_fake_payment(
+    client,
+    order: dict,
+    method: str,
+    requested_method: str,
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    existing_payment = _load_latest_order_payment(client, order["id"], method)
+    payment_data = {
+        **((existing_payment or {}).get("payment_data") or {}),
+        "fake_payment": True,
+        "fake_method": requested_method,
+        "completed_by": "api/payments/fake/method",
+    }
+    completed_payload = {
+        "method": method,
+        "amount": float(Decimal(str(order.get("total_amount") or 0))),
+        "status": "completed",
+        "transaction_id": f"FAKE_{method.upper()}_{uuid4().hex[:12]}",
+        "payment_data": payment_data,
+        "paid_at": now,
+        "updated_at": now,
+    }
+
+    if existing_payment:
+        response = (
+            client.table("payments")
+            .update(completed_payload)
+            .eq("id", existing_payment["id"])
+            .execute()
+        )
+    else:
+        response = (
+            client.table("payments")
+            .insert(
+                {
+                    **completed_payload,
+                    "order_id": order["id"],
+                }
+            )
+            .execute()
+        )
+
+    payment = (response.data or [None])[0]
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create fake payment",
+        )
+    return payment
+
+
+def _load_latest_order_payment(client, order_id: str, method: str) -> dict | None:
+    response = (
+        client.table("payments")
+        .select("*")
+        .eq("order_id", order_id)
+        .eq("method", method)
+        .in_("status", ["pending", "processing", "completed"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return (response.data or [None])[0]
 
 
 def create_momo_checkout(user_id: str, payload: OrderCreate) -> dict:

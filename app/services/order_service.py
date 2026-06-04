@@ -25,8 +25,9 @@ def _normalize_relation_list(value):
 def create_order(user_id: str, payload: OrderCreate) -> list[dict]:
     from app.services import payment_service
 
+    requested_payment_method = (payload.payment_method or "").strip().lower()
     payment_method = payment_service.normalize_payment_method(payload.payment_method)
-    if payment_method == "momo":
+    if payment_method == "momo" and not payment_service.is_fake_payment_method(requested_payment_method):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Use MoMo checkout endpoint for MoMo payments",

@@ -46,6 +46,13 @@ class Payment(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
+class FakePaymentMethodCreate(BaseModel):
+    order_id: str
+    method: str
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class Order(BaseModel):
     id: str
     user_id: str
