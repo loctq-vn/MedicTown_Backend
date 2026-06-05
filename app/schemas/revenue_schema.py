@@ -52,7 +52,33 @@ class RevenueTopProduct(BaseModel):
     product_name: str | None = Field(default=None, alias="productName")
     product_image: str | None = Field(default=None, alias="productImage")
     quantity_sold: int = Field(0, alias="quantitySold")
+    stock: int = 0
     revenue: float = 0
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class RevenueDailySummaryItem(BaseModel):
+    date: str
+    gross_revenue: float = Field(0, alias="grossRevenue")
+    refund_amount: float = Field(0, alias="refundAmount")
+    net_revenue: float = Field(0, alias="netRevenue")
+    total_orders: int = Field(0, alias="totalOrders")
+    completed_orders: int = Field(0, alias="completedOrders")
+    pending_orders: int = Field(0, alias="pendingOrders")
+    confirmed_orders: int = Field(0, alias="confirmedOrders")
+    shipping_orders: int = Field(0, alias="shippingOrders")
+    cancelled_orders: int = Field(0, alias="cancelledOrders")
+    payment_methods: list[RevenuePaymentMethod] = Field(
+        default_factory=list,
+        alias="paymentMethods",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class RevenueDailySummary(BaseModel):
+    items: list[RevenueDailySummaryItem] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
 
