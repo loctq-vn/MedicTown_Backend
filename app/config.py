@@ -1,6 +1,7 @@
 import base64
 import json
 from functools import lru_cache
+from uuid import UUID
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,7 @@ class Settings(BaseSettings):
     )
     supabase_storage_bucket: str = Field("avatars", alias="SUPABASE_STORAGE_BUCKET")
     upload_max_bytes: int = Field(5 * 1024 * 1024, alias="UPLOAD_MAX_BYTES")
+    main_shop_id: UUID = Field(..., alias="MAIN_SHOP_ID")
 
     cors_origins_raw: str = Field("*", alias="CORS_ORIGINS")
 

@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import HTTPException, status
 
 from app.config import settings
-from app.database import supabase
+from app.database import get_service_supabase_client, supabase
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.schemas.shop_schema import ShopCreate, ShopUpdate
 from app.services.order_service import (
@@ -17,6 +19,7 @@ from app.services.upload_validation import validate_image_upload
 SHOP_ORDER_STATUS_TRANSITIONS = {
     "confirmed": {"pending"},
     "shipping": {"confirmed"},
+    "completed": {"shipping"},
     "cancelled": {"pending", "confirmed", "shipping", "cancelled"},
 }
 
@@ -83,6 +86,37 @@ def list_my_shops(user_id: str) -> list[dict]:
         .execute()
     )
     return response.data or []
+
+
+def get_main_shop() -> dict:
+    response = (
+        supabase.table("shops")
+        .select("*")
+        .eq("id", str(settings.main_shop_id))
+        .eq("is_active", True)
+        .maybe_single()
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Main shop is not available",
+        )
+    return response.data
+
+
+def get_main_shop_id() -> str:
+    return str(get_main_shop()["id"])
+
+
+def require_main_shop_owner(user_id: str) -> dict:
+    shop = get_main_shop()
+    if str(shop["owner_id"]) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Main shop owner access required",
+        )
+    return shop
 
 
 def create_shop(user_id: str, payload: ShopCreate) -> dict:
@@ -274,7 +308,7 @@ def update_shop_order_status(user_id: str, shop_id: str, order_id: str, status_v
 
     current_response = (
         supabase.table("orders")
-        .select("id,status")
+        .select("id,status,total_amount")
         .eq("id", order_id)
         .eq("shop_id", shop_id)
         .maybe_single()
@@ -317,8 +351,75 @@ def update_shop_order_status(user_id: str, shop_id: str, order_id: str, status_v
             status_code=status.HTTP_409_CONFLICT,
             detail="Order status was changed by another request",
         )
+    if next_status == "completed":
+        _ensure_completed_cash_payment_if_unpaid(order)
     return order
 
 
 def _is_valid_shop_order_status_transition(current_status: str, next_status: str) -> bool:
     return current_status in SHOP_ORDER_STATUS_TRANSITIONS.get(next_status, set())
+
+
+def _ensure_completed_cash_payment_if_unpaid(order: dict) -> None:
+    client = get_service_supabase_client()
+    completed_payment_response = (
+        client.table("payments")
+        .select("id")
+        .eq("order_id", order["id"])
+        .eq("status", "completed")
+        .limit(1)
+        .execute()
+    )
+    if completed_payment_response.data:
+        return
+
+    now = datetime.now(timezone.utc).isoformat()
+    amount = float(Decimal(str(order.get("total_amount") or 0)))
+    cash_payment_response = (
+        client.table("payments")
+        .select("*")
+        .eq("order_id", order["id"])
+        .eq("method", "cash")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    cash_payment = (cash_payment_response.data or [None])[0]
+    payment_data = {
+        **((cash_payment or {}).get("payment_data") or {}),
+        "completed_by": "shop_order_completion",
+    }
+    completed_payload = {
+        "amount": amount,
+        "status": "completed",
+        "payment_data": payment_data,
+        "paid_at": (cash_payment or {}).get("paid_at") or now,
+        "updated_at": now,
+    }
+
+    if cash_payment:
+        response = (
+            client.table("payments")
+            .update(completed_payload)
+            .eq("id", cash_payment["id"])
+            .execute()
+        )
+    else:
+        response = (
+            client.table("payments")
+            .insert(
+                {
+                    **completed_payload,
+                    "order_id": order["id"],
+                    "method": "cash",
+                    "transaction_id": f"CASH_{uuid4().hex[:12]}",
+                }
+            )
+            .execute()
+        )
+
+    if not (response.data or []):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create completed cash payment",
+        )

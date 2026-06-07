@@ -214,6 +214,49 @@ Voi static domain, URL giu nguyen qua cac lan chay. Voi tunnel tam thoi, URL se 
 - `GET /api/shops/{shop_id}/orders`
 - `PATCH /api/shops/{shop_id}/orders/{order_id}/status`
 
+### Chat
+
+- `POST /api/chat/conversation`
+- `GET /api/chat/messages?conversation_id={conversation_id}`
+  - Dùng `before` + `before_id` để tải tin cũ.
+  - Dùng `after` + `after_id` để đồng bộ tin mới sau khi kết nối lại.
+- `POST /api/chat/messages`
+- `PATCH /api/chat/read`
+- `GET /api/chat/seller/conversations`
+- `WS /api/chat/ws`
+
+Android ket noi WebSocket bang cung access token dang dung cho REST:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+WebSocket chi gui thong bao sau khi tin nhan da duoc luu vao Supabase:
+
+```json
+{
+  "type": "chat.message.created",
+  "event_id": "uuid",
+  "occurred_at": "2026-06-07T10:30:00Z",
+  "data": {
+    "conversation_id": "uuid",
+    "message_id": "uuid"
+  }
+}
+```
+
+Android nhan event roi goi REST de dong bo tin nhan. Co the gui
+`{"type":"ping"}` va backend se tra event `pong`.
+
+Connection manager hien luu trong RAM, vi vay backend chat phai chay mot worker:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+Khi can chay nhieu worker hoac nhieu server, thay connection manager bang Redis
+Pub/Sub de event den dung worker dang giu WebSocket.
+
 ## Goi tu Android
 
 Sau khi login, backend tra ve `access_token`. Android gui token nay trong moi request can dang nhap:
