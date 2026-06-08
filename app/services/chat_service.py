@@ -1,11 +1,14 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 from postgrest.exceptions import APIError
 
+from app.config import settings
 from app.database import get_service_supabase_client, supabase
 from app.schemas.chat_schema import ChatMessageCreate
 from app.services.shop_service import get_main_shop, require_main_shop_owner
+from app.services.upload_validation import validate_image_upload
 
 
 def get_or_create_conversation(current_user: dict) -> dict:
@@ -142,7 +145,8 @@ def send_message_with_delivery(
         "sender_id": user_id,
         "sender_type": sender_type,
         "content": payload.content,
-        "message_type": "text",
+        "message_type": payload.message_type,
+        "metadata": payload.metadata,
         "client_message_id": client_message_id,
     }
     try:
@@ -161,6 +165,39 @@ def send_message_with_delivery(
             detail="Unable to send chat message",
         )
     return message, recipient_id, True
+
+
+async def upload_chat_image(
+    current_user: dict,
+    conversation_id: str,
+    content: bytes,
+    content_type: str | None = None,
+    filename: str | None = None,
+) -> dict:
+    _get_accessible_conversation(str(current_user["id"]), conversation_id)
+    extension, content_type = validate_image_upload(content, content_type, filename)
+    file_path = f"chat/{conversation_id}/upload_{uuid4().hex}.{extension}"
+
+    try:
+        supabase.storage.from_(settings.supabase_storage_bucket).upload(
+            file_path,
+            content,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+        public_url = supabase.storage.from_(settings.supabase_storage_bucket).get_public_url(
+            file_path
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to upload chat image",
+        ) from exc
+
+    return {
+        "path": file_path,
+        "url": public_url,
+        "mime_type": content_type,
+    }
 
 
 def mark_messages_read(current_user: dict, conversation_id: str) -> dict:

@@ -12,6 +12,10 @@ def _normalize_review(review: dict) -> dict:
     return review
 
 
+def _response_data(response):
+    return getattr(response, "data", None)
+
+
 def create_review(user_id: str, payload: ReviewCreate) -> dict:
     if not payload.order_item_id:
         raise HTTPException(
@@ -26,7 +30,7 @@ def create_review(user_id: str, payload: ReviewCreate) -> dict:
         .maybe_single()
         .execute()
     )
-    order_item = order_item_response.data
+    order_item = _response_data(order_item_response)
     if not order_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +50,7 @@ def create_review(user_id: str, payload: ReviewCreate) -> dict:
         .maybe_single()
         .execute()
     )
-    order = order_response.data
+    order = _response_data(order_response)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -65,7 +69,7 @@ def create_review(user_id: str, payload: ReviewCreate) -> dict:
         .maybe_single()
         .execute()
     )
-    if existing_response.data:
+    if _response_data(existing_response):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Order item already reviewed",
@@ -90,7 +94,7 @@ def create_review(user_id: str, payload: ReviewCreate) -> dict:
         else:
             raise
 
-    review = (response.data or [None])[0]
+    review = (_response_data(response) or [None])[0]
     if not review:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -135,7 +139,7 @@ def list_reviews(
         else:
             raise
 
-    reviews = response.data or []
+    reviews = _response_data(response) or []
     for review in reviews:
         _normalize_review(review)
     return reviews

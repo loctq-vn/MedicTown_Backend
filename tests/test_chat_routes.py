@@ -11,6 +11,7 @@ def test_chat_routes_are_registered():
     assert ("/api/chat/conversation", "POST") in routes
     assert ("/api/chat/messages", "GET") in routes
     assert ("/api/chat/messages", "POST") in routes
+    assert ("/api/chat/images", "POST") in routes
     assert ("/api/chat/read", "PATCH") in routes
     assert ("/api/chat/seller/conversations", "GET") in routes
     assert any(route.path == "/api/chat/ws" for route in app.routes)

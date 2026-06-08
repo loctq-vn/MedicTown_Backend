@@ -104,6 +104,28 @@ def test_message_payload_rejects_identity_fields():
         )
 
 
+def test_image_message_payload_requires_url_metadata():
+    with pytest.raises(ValidationError):
+        ChatMessageCreate(
+            conversation_id=uuid4(),
+            client_message_id=uuid4(),
+            message_type="image",
+            metadata={},
+        )
+
+
+def test_image_message_payload_accepts_url_metadata():
+    payload = ChatMessageCreate(
+        conversation_id=uuid4(),
+        client_message_id=uuid4(),
+        message_type="image",
+        metadata={"url": "https://example.com/image.jpg"},
+    )
+
+    assert payload.content is None
+    assert payload.metadata["url"] == "https://example.com/image.jpg"
+
+
 def test_conversation_is_created_by_backend_for_main_shop(monkeypatch):
     user_id = str(uuid4())
     shop_id = str(uuid4())
@@ -188,6 +210,65 @@ def test_send_message_derives_customer_identity(monkeypatch):
     assert query.inserted["sender_id"] == user_id
     assert query.inserted["sender_type"] == "customer"
     assert query.inserted["content"] == "Xin chao shop"
+    assert query.inserted["message_type"] == "text"
+    assert query.inserted["metadata"] == {}
+
+
+def test_send_image_message_persists_metadata(monkeypatch):
+    payload = ChatMessageCreate(
+        conversation_id=uuid4(),
+        client_message_id=uuid4(),
+        content=None,
+        message_type="image",
+        metadata={"url": "https://example.com/image.jpg"},
+    )
+    user_id = str(uuid4())
+    conversation = {
+        "id": str(payload.conversation_id),
+        "customer_id": user_id,
+        "shop_id": str(uuid4()),
+    }
+    created = {
+        "id": str(uuid4()),
+        "conversation_id": str(payload.conversation_id),
+        "sender_id": user_id,
+        "sender_type": "customer",
+        "content": payload.content,
+        "message_type": "image",
+        "metadata": payload.metadata,
+        "client_message_id": str(payload.client_message_id),
+        "read_at": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "deleted_at": None,
+    }
+    query = InsertQuery(created)
+
+    monkeypatch.setattr(
+        chat_service,
+        "_get_accessible_conversation",
+        lambda _user_id, _conversation_id: conversation,
+    )
+    monkeypatch.setattr(
+        chat_service,
+        "_find_message_by_client_id",
+        lambda _sender_id, _client_message_id: None,
+    )
+    monkeypatch.setattr(
+        chat_service,
+        "get_main_shop",
+        lambda: {
+            "id": conversation["shop_id"],
+            "owner_id": "seller-1",
+        },
+    )
+    monkeypatch.setattr(chat_service.supabase, "table", lambda _name: query)
+
+    result = chat_service.send_message({"id": user_id}, payload)
+
+    assert result == created
+    assert query.inserted["content"] is None
+    assert query.inserted["message_type"] == "image"
+    assert query.inserted["metadata"] == {"url": "https://example.com/image.jpg"}
 
 
 def test_send_message_retry_returns_existing_without_insert(monkeypatch):

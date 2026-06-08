@@ -1,7 +1,16 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from starlette.concurrency import run_in_threadpool
 
 from app.dependencies import get_current_user
@@ -53,6 +62,24 @@ def list_messages(
         after=after,
         after_id=str(after_id) if after_id else None,
         limit=limit,
+    )
+
+
+@router.post("/images")
+async def upload_chat_image(
+    conversation_id: UUID,
+    request: Request,
+    filename: str | None = None,
+    content_type: str | None = Header(default=None, alias="Content-Type"),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    content = await request.body()
+    return await chat_service.upload_chat_image(
+        current_user,
+        str(conversation_id),
+        content,
+        content_type=content_type,
+        filename=filename,
     )
 
 

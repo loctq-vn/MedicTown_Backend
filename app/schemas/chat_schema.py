@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ChatConversation(BaseModel):
@@ -19,17 +19,41 @@ class ChatConversation(BaseModel):
 class ChatMessageCreate(BaseModel):
     conversation_id: UUID
     client_message_id: UUID
-    content: str = Field(min_length=1, max_length=4000)
+    content: str | None = Field(default=None, max_length=4000)
+    message_type: Literal["text", "image", "order", "product"] = "text"
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("content")
-    @classmethod
-    def normalize_content(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("Message content cannot be blank")
-        return value
+    @model_validator(mode="after")
+    def validate_message_payload(self) -> "ChatMessageCreate":
+        if self.content is not None:
+            self.content = self.content.strip()
+
+        if self.message_type == "text":
+            if not self.content:
+                raise ValueError("Message content cannot be blank")
+            return self
+
+        if self.message_type == "image":
+            url = str(self.metadata.get("url") or "").strip()
+            if not url:
+                raise ValueError("Image message requires metadata.url")
+            return self
+
+        if self.message_type == "order":
+            order_id = str(self.metadata.get("order_id") or "").strip()
+            if not order_id:
+                raise ValueError("Order message requires metadata.order_id")
+            return self
+
+        if self.message_type == "product":
+            product_id = str(self.metadata.get("product_id") or "").strip()
+            if not product_id:
+                raise ValueError("Product message requires metadata.product_id")
+            return self
+
+        return self
 
 
 class ChatMessage(BaseModel):
@@ -37,8 +61,9 @@ class ChatMessage(BaseModel):
     conversation_id: str
     sender_id: str
     sender_type: Literal["customer", "seller"]
-    content: str
-    message_type: Literal["text"] = "text"
+    content: str | None = None
+    message_type: Literal["text", "image", "order", "product"] = "text"
+    metadata: dict[str, Any] = Field(default_factory=dict)
     client_message_id: str
     read_at: datetime | None = None
     created_at: datetime
