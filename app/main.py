@@ -6,6 +6,7 @@ from app.routers import (
     addresses,
     auth,
     cart,
+    chat,
     orders,
     payments,
     products,
@@ -40,6 +41,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(addresses.router, prefix="/api/address", tags=["Address"])
 app.include_router(cart.router, prefix="/api/cart_items", tags=["Cart"])
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
