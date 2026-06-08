@@ -23,14 +23,20 @@ class AddressCreate(BaseModel):
     location_name: str | None = Field(default=None, max_length=255)
     phone_number: str = Field(min_length=8, max_length=20)
 
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    map_provider: str | None = Field(default="osm", max_length=32)
+    provider_place_id: str | None = Field(default=None, max_length=120)
+    raw_address: str | None = Field(default=None, max_length=1000)
+
     model_config = ConfigDict(extra="ignore")
 
     @field_validator("recipient_name", "location", "phone_number")
     @classmethod
     def normalize_required_text(cls, value: str) -> str:
         return _strip_required(value)
-
-    @field_validator("location_name")
+    
+    @field_validator("location_name", "map_provider", "provider_place_id", "raw_address")
     @classmethod
     def normalize_optional_text(cls, value: str | None) -> str | None:
         return _strip_optional(value)
@@ -42,13 +48,19 @@ class AddressUpdate(BaseModel):
     location_name: str | None = Field(default=None, max_length=255)
     phone_number: str | None = Field(default=None, min_length=8, max_length=20)
 
+    
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    map_provider: str | None = Field(default="osm", max_length=32)
+    provider_place_id: str | None = Field(default=None, max_length=120)
+    raw_address: str | None = Field(default=None, max_length=1000)
+
     model_config = ConfigDict(extra="ignore")
 
-    @field_validator("recipient_name", "location", "location_name", "phone_number")
+    @field_validator("location_name", "map_provider", "provider_place_id", "raw_address")
     @classmethod
-    def normalize_text(cls, value: str | None) -> str | None:
+    def normalize_optional_text(cls, value: str | None) -> str | None:
         return _strip_optional(value)
-
 
 class Address(AddressCreate):
     id: str
