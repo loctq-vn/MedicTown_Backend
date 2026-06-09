@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routers import (
     addresses,
+    ads,
     auth,
     cart,
     chat,
@@ -40,6 +41,7 @@ def health_check() -> dict[str, str]:
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(addresses.router, prefix="/api/address", tags=["Address"])
+app.include_router(ads.router, prefix="/api/ads", tags=["Advertisements"])
 app.include_router(cart.router, prefix="/api/cart_items", tags=["Cart"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])

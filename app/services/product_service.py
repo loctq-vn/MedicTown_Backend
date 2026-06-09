@@ -6,6 +6,7 @@ def list_products(
     search: str | None = None,
     category_id: str | None = None,
     subcategory_id: str | None = None,
+    shop_id: str | None = None,
     is_featured: bool | None = None,
     is_active: bool | None = None,
     limit: int = 20,
@@ -15,6 +16,8 @@ def list_products(
 
     if search:
         query = query.ilike("name", f"%{search}%")
+    if shop_id:
+        query = query.eq("shop_id", shop_id)
     if subcategory_id:
         query = query.eq("subcategory_id", subcategory_id)
     elif category_id:
@@ -69,6 +72,7 @@ def list_products_by_name_filter(
     name_filter: str | None = None,
     category_id: str | None = None,
     subcategory_id: str | None = None,
+    shop_id: str | None = None,
     is_featured: bool | None = None,
     is_active: bool | None = None,
     limit: int = 20,
@@ -79,6 +83,8 @@ def list_products_by_name_filter(
 
     if search_pattern:
         query = query.ilike("name", search_pattern)
+    if shop_id:
+        query = query.eq("shop_id", shop_id)
     if subcategory_id:
         query = query.eq("subcategory_id", subcategory_id)
     elif category_id:

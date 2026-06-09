@@ -90,6 +90,11 @@ CREATE TABLE public.address (
   location text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   location_name text,
+  latitude double precision CHECK (latitude IS NULL OR latitude >= '-90'::integer::double precision AND latitude <= 90::double precision),
+  longitude double precision CHECK (longitude IS NULL OR longitude >= '-180'::integer::double precision AND longitude <= 180::double precision),
+  map_provider text DEFAULT 'osm'::text,
+  provider_place_id text,
+  raw_address text,
   CONSTRAINT address_pkey PRIMARY KEY (id),
   CONSTRAINT address_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -178,4 +183,28 @@ CREATE TABLE public.chat_messages (
   CONSTRAINT chat_messages_pkey PRIMARY KEY (id),
   CONSTRAINT chat_messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.chat_conversations(id),
   CONSTRAINT chat_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.advertisements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  description text,
+  image_url text NOT NULL,
+  target_type text NOT NULL DEFAULT 'product'::text CHECK (target_type = ANY (ARRAY['product'::text, 'shop'::text, 'external_url'::text, 'none'::text])),
+  target_id uuid,
+  target_url text,
+  position text NOT NULL DEFAULT 'home_banner'::text CHECK ("position" = ANY (ARRAY['home_banner'::text, 'product_list'::text, 'popup'::text, 'checkout_banner'::text])),
+  priority integer NOT NULL DEFAULT 0 CHECK (priority >= 0),
+  is_active boolean NOT NULL DEFAULT true,
+  start_date timestamp with time zone,
+  end_date timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  view_count integer NOT NULL DEFAULT 0,
+  click_count integer NOT NULL DEFAULT 0,
+  budget_amount numeric,
+  spent_amount numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['draft'::text, 'active'::text, 'paused'::text, 'expired'::text])),
+  shop_id uuid,
+  created_by uuid,
+  CONSTRAINT advertisements_pkey PRIMARY KEY (id)
 );

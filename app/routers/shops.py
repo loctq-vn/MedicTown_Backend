@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BaseModel
 
 from app.dependencies import get_current_user
 from app.schemas.order_schema import Order
+from app.schemas.ad_schema import (
+    Advertisement,
+    AdvertisementCreate,
+    AdvertisementStatusUpdate,
+    AdvertisementUpdate,
+)
 from app.schemas.product_schema import Product, ProductCreate, ProductUpdate
 from app.schemas.shop_schema import Shop, ShopCreate, ShopUpdate
-from app.services import shop_service
+from app.services import ad_service, shop_service
 
 router = APIRouter()
 
@@ -42,6 +48,111 @@ def update_shop(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     return shop_service.update_shop(current_user["id"], shop_id, payload)
+
+
+@router.get("/{shop_id}/ads", response_model=list[Advertisement])
+def list_shop_ads(
+    shop_id: str,
+    search: str | None = Query(default=None),
+    ad_status: str | None = Query(default=None, alias="status"),
+    position: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    fetch_all: bool = Query(default=False),
+    current_user: dict = Depends(get_current_user),
+) -> list[dict]:
+    return ad_service.list_shop_ads(
+        current_user["id"],
+        shop_id,
+        search=search,
+        ad_status=ad_status,
+        position=position,
+        limit=limit,
+        offset=offset,
+        fetch_all=fetch_all,
+    )
+
+
+@router.post(
+    "/{shop_id}/ads",
+    response_model=Advertisement,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_shop_ad(
+    shop_id: str,
+    payload: AdvertisementCreate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return ad_service.create_shop_ad(current_user["id"], shop_id, payload)
+
+
+@router.get("/{shop_id}/ads/{ad_id}", response_model=Advertisement)
+def get_shop_ad(
+    shop_id: str,
+    ad_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return ad_service.get_shop_ad(current_user["id"], shop_id, ad_id)
+
+
+@router.patch("/{shop_id}/ads/{ad_id}", response_model=Advertisement)
+def update_shop_ad(
+    shop_id: str,
+    ad_id: str,
+    payload: AdvertisementUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return ad_service.update_shop_ad(
+        current_user["id"],
+        shop_id,
+        ad_id,
+        payload,
+    )
+
+
+@router.patch("/{shop_id}/ads/{ad_id}/status", response_model=Advertisement)
+def update_shop_ad_status(
+    shop_id: str,
+    ad_id: str,
+    payload: AdvertisementStatusUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    return ad_service.update_shop_ad_status(
+        current_user["id"],
+        shop_id,
+        ad_id,
+        payload,
+    )
+
+
+@router.delete(
+    "/{shop_id}/ads/{ad_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_shop_ad(
+    shop_id: str,
+    ad_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> None:
+    ad_service.delete_shop_ad(current_user["id"], shop_id, ad_id)
+
+
+@router.post("/{shop_id}/ads/images")
+async def upload_shop_ad_image(
+    shop_id: str,
+    request: Request,
+    filename: str | None = None,
+    content_type: str | None = Header(default=None, alias="Content-Type"),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    content = await request.body()
+    return await ad_service.upload_ad_image(
+        current_user["id"],
+        shop_id,
+        content,
+        content_type=content_type,
+        filename=filename,
+    )
 
 
 @router.get("/{shop_id}/products", response_model=list[Product])
