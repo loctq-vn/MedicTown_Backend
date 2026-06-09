@@ -285,41 +285,6 @@ Khi goi backend, khong gui header `apikey` nua. Cac API can dang nhap chi gui:
 Authorization: Bearer <access_token>
 ```
 
-Mapping tu `SupabaseApi` cu:
-
-```text
-GET products              -> GET /api/products, tra ve List<Products>
-GET products featured     -> GET /api/products/featured, tra ve List<Products>
-GET users                 -> GET /api/users/me
-PATCH users               -> PATCH /api/users/me
-POST address              -> POST /api/address
-PATCH address             -> PATCH /api/address?id={id}
-GET address               -> GET /api/address
-DELETE address            -> DELETE /api/address?id={id}
-GET cart_items            -> GET /api/cart_items
-POST cart_items           -> POST /api/cart_items
-PATCH cart_items          -> PATCH /api/cart_items?id={id}
-DELETE cart_items by id   -> DELETE /api/cart_items?id={id}
-DELETE cart_items by user -> DELETE /api/cart_items
-DELETE cart_items batch   -> DELETE /api/cart_items?ids=in.(id1,id2)
-POST orders               -> POST /api/orders
-GET orders                -> GET /api/orders
-GET reviews by item       -> GET /api/reviews?order_item_id={id}
-GET reviews by items      -> GET /api/reviews?order_item_id=in.(id1,id2)
-GET reviews by product    -> GET /api/reviews?product_id={id}
-POST reviews              -> POST /api/reviews
-GET my shops              -> GET /api/shops/my
-POST shop                 -> POST /api/shops
-GET shop products         -> GET /api/shops/{shop_id}/products
-POST shop product         -> POST /api/shops/{shop_id}/products
-PATCH shop product        -> PATCH /api/shops/{shop_id}/products/{product_id}
-GET shop orders           -> GET /api/shops/{shop_id}/orders
-PATCH shop order status   -> PATCH /api/shops/{shop_id}/orders/{order_id}/status
-POST signup               -> POST /api/auth/register
-POST token password       -> POST /api/auth/login
-POST token id_token       -> POST /api/auth/google
-```
-
 ## Mapping Repository
 
 ### ProductRepository
