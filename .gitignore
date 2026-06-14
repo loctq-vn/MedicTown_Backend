@@ -13,3 +13,5 @@ htmlcov/
 .vscode/
 tools/
 logs/
+secrets/
+firebase-service-account*.json

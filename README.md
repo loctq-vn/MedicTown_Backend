@@ -65,31 +65,31 @@ pip install -r requirements.txt
 Chay backend:
 
 ```powershell
-.\scripts\start_backend.ps1
+.\scripts\start_backend.cmd
 ```
 
 Mac dinh API chay tai:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8200
 ```
 
 Tai lieu Swagger:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8200/docs
 ```
 
-Neu terminal bao loi cong `8000` da duoc dung, backend co the dang chay san. Kiem tra nhanh:
+Neu terminal bao loi cong `8200` da duoc dung, backend co the dang chay san. Kiem tra nhanh:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/
+Invoke-RestMethod http://127.0.0.1:8200/
 ```
 
-Neu can tat server cu, tim process dang dung cong `8000`:
+Neu can tat server cu, tim process dang dung cong `8200`:
 
 ```powershell
-netstat -ano | findstr ":8000"
+netstat -ano | findstr ":8200"
 ```
 
 Sau do dung PID o cot cuoi de tat:
@@ -101,12 +101,12 @@ Stop-Process -Id <PID>
 Chay lai backend:
 
 ```powershell
-.\scripts\start_backend.ps1
+.\scripts\start_backend.cmd
 ```
 
 ## Public backend bang ngrok
 
-Backend chay local tai `http://127.0.0.1:8000`. De public ra internet trong luc dev/test, dung ngrok:
+Backend chay local tai `http://127.0.0.1:8200`. De public ra internet trong luc dev/test, dung ngrok:
 
 1. Dat `ngrok.exe` vao thu muc:
 
@@ -123,7 +123,7 @@ D:\MedicTown_All\MedicTown_Full\MedicTown_Backend\tools\ngrok.exe
 3. Chay backend o terminal thu nhat:
 
 ```powershell
-.\scripts\start_backend.ps1
+.\scripts\start_backend.cmd
 ```
 
 4. Mo terminal thu hai tai cung thu muc backend va chay tunnel:
@@ -251,7 +251,7 @@ Android nhan event roi goi REST de dong bo tin nhan. Co the gui
 Connection manager hien luu trong RAM, vi vay backend chat phai chay mot worker:
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+uvicorn main:app --host 0.0.0.0 --port 8200 --workers 1
 ```
 
 Khi can chay nhieu worker hoac nhieu server, thay connection manager bang Redis
@@ -276,7 +276,7 @@ Vi du flow:
 Trong Android, doi `RetrofitClient` ve base URL backend, vi du:
 
 ```java
-public static final String BACKEND_URL = "http://10.0.2.2:8000/api/";
+public static final String BACKEND_URL = "http://10.0.2.2:8200/api/";
 ```
 
 Khi goi backend, khong gui header `apikey` nua. Cac API can dang nhap chi gui:

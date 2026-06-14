@@ -8,6 +8,7 @@ from app.routers import (
     auth,
     cart,
     chat,
+    notifications,
     orders,
     payments,
     products,
@@ -45,6 +46,11 @@ app.include_router(ads.router, prefix="/api/ads", tags=["Advertisements"])
 app.include_router(cart.router, prefix="/api/cart_items", tags=["Cart"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
+app.include_router(
+    notifications.router,
+    prefix="/api/notifications",
+    tags=["Notifications"],
+)
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(revenue.router, prefix="/api/revenue", tags=["Revenue"])

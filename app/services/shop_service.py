@@ -1,3 +1,8 @@
+import logging
+from app.services import notification_service
+
+logger = logging.getLogger(__name__)
+
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
@@ -308,7 +313,7 @@ def update_shop_order_status(user_id: str, shop_id: str, order_id: str, status_v
 
     current_response = (
         supabase.table("orders")
-        .select("id,status,total_amount")
+        .select("id,user_id,status,total_amount")
         .eq("id", order_id)
         .eq("shop_id", shop_id)
         .maybe_single()
@@ -332,27 +337,38 @@ def update_shop_order_status(user_id: str, shop_id: str, order_id: str, status_v
         )
 
     if current_status == "pending" and next_status == "confirmed":
-        return confirm_order_and_deduct_stock(supabase, shop_id, order_id)
+        order = confirm_order_and_deduct_stock(supabase, shop_id, order_id)
 
-    if next_status == "cancelled":
-        return cancel_order_and_restore_stock(supabase, shop_id, order_id)
+    elif next_status == "cancelled":
+        order = cancel_order_and_restore_stock(supabase, shop_id, order_id)
 
-    response = (
-        supabase.table("orders")
-        .update({"status": next_status})
-        .eq("id", order_id)
-        .eq("shop_id", shop_id)
-        .eq("status", current_status)
-        .execute()
-    )
-    order = (response.data or [None])[0]
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Order status was changed by another request",
+    else:
+        response = (
+            supabase.table("orders")
+            .update({"status": next_status})
+            .eq("id", order_id)
+            .eq("shop_id", shop_id)
+            .eq("status", current_status)
+            .execute()
         )
-    if next_status == "completed":
-        _ensure_completed_cash_payment_if_unpaid(order)
+        order = (response.data or [None])[0]
+
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order status was changed by another request",
+            )
+
+        if next_status == "completed":
+            _ensure_completed_cash_payment_if_unpaid(order)
+
+    order.setdefault("user_id", current_order["user_id"])
+
+    try:
+        notification_service.send_order_status_notification(order)
+    except Exception:
+        logger.exception("Order updated, but notification delivery failed")
+
     return order
 
 

@@ -44,6 +44,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    firebase_credentials_path: str | None = Field(
+        None,
+        alias="FIREBASE_CREDENTIALS_PATH",
+    )
+
     @model_validator(mode="after")
     def reject_service_role_key(self) -> "Settings":
         if _jwt_role(self.supabase_anon_key) == "service_role":

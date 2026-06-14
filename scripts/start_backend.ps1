@@ -1,5 +1,5 @@
 param(
-    [int]$Port = 8000
+    [int]$Port = 8200
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,7 +8,9 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $PythonCandidates = @(
     ".\.venv\Scripts\python.exe",
+    ".\.venv\bin\python.exe",
     ".\venv\Scripts\python.exe",
+    ".\venv\bin\python.exe",
     "python",
     "py"
 )

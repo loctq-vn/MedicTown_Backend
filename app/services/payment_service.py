@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.error import HTTPError, URLError
@@ -14,14 +15,13 @@ from fastapi import HTTPException, status
 from app.config import settings
 from app.database import get_service_supabase_client, supabase
 from app.schemas.order_schema import FakePaymentMethodCreate, OrderCreate
-from app.services import order_service
-
+from app.services import notification_service, order_service
 
 MOMO_SUCCESS_CODE = 0
 MOMO_PAYMENT_TTL_MINUTES = 15
 MOMO_MIN_AMOUNT = 1000
 MOMO_MAX_AMOUNT = 50_000_000
-
+logger = logging.getLogger(__name__)
 
 def normalize_payment_method(payment_method: str | None) -> str:
     normalized = (payment_method or "").strip().lower()
@@ -692,14 +692,17 @@ def _parse_datetime(value) -> datetime | None:
         ) from exc
 
 
-def _sync_order_status_after_payment_ipn(client, order_id: str, payment_status: str) -> None:
+def _sync_order_status_after_payment_ipn(
+    client,
+    order_id: str,
+    payment_status: str,
+) -> None:
     if payment_status == "completed":
-        order_status = "confirmed"
-        (
+        response = (
             client.table("orders")
             .update(
                 {
-                    "status": order_status,
+                    "status": "confirmed",
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
@@ -707,13 +710,15 @@ def _sync_order_status_after_payment_ipn(client, order_id: str, payment_status: 
             .in_("status", ["pending"])
             .execute()
         )
+
+        _send_order_notification(response.data)
         return
 
     if payment_status == "failed":
         if _order_has_active_or_completed_payment(client, order_id):
             return
 
-        (
+        response = (
             client.table("orders")
             .update(
                 {
@@ -726,6 +731,21 @@ def _sync_order_status_after_payment_ipn(client, order_id: str, payment_status: 
             .execute()
         )
 
+        _send_order_notification(response.data)
+
+def _send_order_notification(updated_orders) -> None:
+    if not updated_orders:
+        return
+
+    order = updated_orders[0]
+
+    try:
+        notification_service.send_order_status_notification(order)
+    except Exception:
+        # Payment processing must remain successful even if FCM is unavailable.
+        logger.exception(
+            "Order status updated, but notification delivery failed"
+        )
 
 def _order_has_active_or_completed_payment(client, order_id: str) -> bool:
     response = (
