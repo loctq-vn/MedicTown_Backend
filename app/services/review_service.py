@@ -100,6 +100,24 @@ def create_review(user_id: str, payload: ReviewCreate) -> dict:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to create review",
         )
+    try:
+        from app.schemas.recommendation_schema import ProductEventCreate
+        from app.services import recommendation_service
+
+        recommendation_service.create_product_event(
+            user_id,
+            ProductEventCreate(
+                product_id=payload.product_id,
+                event_type="review",
+                metadata={
+                    "order_item_id": payload.order_item_id,
+                    "rating": payload.rating,
+                    "source": "review_create",
+                },
+            ),
+        )
+    except Exception:
+        pass
     return _normalize_review(review)
 
 

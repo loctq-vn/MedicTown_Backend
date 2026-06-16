@@ -12,6 +12,7 @@ from app.routers import (
     orders,
     payments,
     products,
+    recommendations,
     revenue,
     reviews,
     shops,
@@ -53,6 +54,11 @@ app.include_router(
 )
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(
+    recommendations.router,
+    prefix="/api/recommendations",
+    tags=["Recommendations"],
+)
 app.include_router(revenue.router, prefix="/api/revenue", tags=["Revenue"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
 app.include_router(shops.router, prefix="/api/shops", tags=["Shops"])
