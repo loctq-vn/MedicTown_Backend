@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.product_schema import Product
+
 
 ProductEventType = Literal[
     "view",
@@ -31,3 +33,8 @@ class ProductEvent(BaseModel):
     created_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="allow")
+
+
+class ProductRecommendation(Product):
+    recommendation_score: float = 0
+    recommendation_reasons: list[str] = Field(default_factory=list)
