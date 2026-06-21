@@ -201,10 +201,46 @@ CREATE TABLE public.advertisements (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   view_count integer NOT NULL DEFAULT 0,
   click_count integer NOT NULL DEFAULT 0,
-  budget_amount numeric,
+  budget_amount numeric CHECK (budget_amount IS NULL OR budget_amount >= 0::numeric),
   spent_amount numeric NOT NULL DEFAULT 0,
   status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['draft'::text, 'active'::text, 'paused'::text, 'expired'::text])),
   shop_id uuid,
   created_by uuid,
-  CONSTRAINT advertisements_pkey PRIMARY KEY (id)
+  CONSTRAINT advertisements_pkey PRIMARY KEY (id),
+  CONSTRAINT advertisements_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES public.shops(id),
+  CONSTRAINT advertisements_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.device_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  token text NOT NULL UNIQUE,
+  platform text NOT NULL DEFAULT 'android'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT device_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT device_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.product_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  product_id uuid NOT NULL,
+  event_type text NOT NULL CHECK (event_type = ANY (ARRAY['view'::text, 'click'::text, 'add_to_cart'::text, 'buy'::text, 'review'::text, 'search_click'::text])),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_events_pkey PRIMARY KEY (id),
+  CONSTRAINT product_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT product_events_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  type text NOT NULL DEFAULT 'general'::text,
+  title text NOT NULL,
+  body text NOT NULL,
+  order_id uuid,
+  is_read boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT notifications_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
 );

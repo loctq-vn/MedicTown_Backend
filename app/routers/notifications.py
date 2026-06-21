@@ -7,6 +7,7 @@ from app.dependencies import get_current_user
 from app.schemas.notification_schema import DeviceTokenRequest, NotificationResponse
 from app.services import notification_service
 
+router = APIRouter()
 
 @router.put(
     "/device-token",
