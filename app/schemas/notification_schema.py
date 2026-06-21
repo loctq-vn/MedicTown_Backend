@@ -12,3 +12,18 @@ class DeviceTokenRequest(BaseModel):
         if isinstance(value, str):
             return value.strip()
         return value
+    
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+
+class NotificationResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    type: str
+    title: str
+    body: str
+    order_id: Optional[UUID] = None
+    is_read: bool
+    created_at: datetime

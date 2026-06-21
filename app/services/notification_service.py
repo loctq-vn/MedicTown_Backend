@@ -139,6 +139,13 @@ def send_order_status_notification(order: dict) -> None:
     )
 
     title, body = message_text
+    create_notification(
+        user_id=str(user_id),
+        title=title,
+        body=body,
+        notification_type="order_status",
+        order_id=str(order["id"]),
+    )
     for row in response.data or []:
         token = row.get("token")
         if not token:
@@ -195,3 +202,73 @@ def delete_stale_device_tokens(max_age_days: int = 90) -> int:
     )
 
     return len(deleted)
+
+def create_notification(
+    user_id: str,
+    title: str,
+    body: str,
+    notification_type: str = "general",
+    order_id: str | None = None,
+) -> dict:
+    client = _get_service_client()
+
+    payload = {
+        "user_id": user_id,
+        "type": notification_type,
+        "title": title,
+        "body": body,
+        "order_id": order_id,
+        "is_read": False,
+    }
+
+    response = (
+        client.table("notifications")
+        .insert(payload)
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create notification",
+        )
+
+    return response.data[0]
+
+def get_notifications(user_id: str, limit: int = 50) -> list[dict]:
+    client = _get_service_client()
+
+    response = (
+        client.table("notifications")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return response.data or []
+
+
+def mark_notification_read(user_id: str, notification_id: str) -> None:
+    client = _get_service_client()
+
+    (
+        client.table("notifications")
+        .update({"is_read": True})
+        .eq("id", notification_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+
+def mark_all_notifications_read(user_id: str) -> None:
+    client = _get_service_client()
+
+    (
+        client.table("notifications")
+        .update({"is_read": True})
+        .eq("user_id", user_id)
+        .eq("is_read", False)
+        .execute()
+    )
